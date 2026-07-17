@@ -13,7 +13,7 @@ export async function requestNotificationPermission() {
 export function showLocalNotification(title, body) {
   if (Notification.permission !== "granted") return;
   navigator.serviceWorker.ready.then((reg) => {
-    reg.showNotification(title, { body, icon: "/icons/icon-192.png" });
+    reg.showNotification(title, { body, icon: "icons/icon-192.png" });
   });
 }
 
