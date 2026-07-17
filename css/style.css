@@ -38,7 +38,6 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  padding-bottom: 76px;
 }
 
 #app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--bg); }
@@ -107,7 +106,7 @@ body {
 .card-yellow { background: var(--card-yellow); color: var(--card-yellow-text); }
 .card-lavender { background: var(--card-lavender); color: var(--card-lavender-text); grid-column: span 2; flex-direction: row; justify-content: center; }
 
-#tab-content { padding: 12px 16px 24px; }
+#tab-content { padding: 16px 16px 32px; }
 
 .add-form { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .add-form input { flex: 2; width: auto; }
@@ -188,19 +187,14 @@ body {
   cursor: pointer; font-size: 0.9rem; padding: 0;
 }
 
-nav#bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  display: flex; justify-content: space-around;
-  background: var(--surface); border-top: 1px solid var(--border);
-  max-width: 480px; margin: 0 auto; padding: 4px 0;
+.home-btn {
+  width: auto; background: var(--secondary-bg); color: var(--secondary-text);
+  border: none; padding: 8px 14px; border-radius: var(--radius-sm);
+  font-weight: 600; font-size: 0.9rem; cursor: pointer; margin-bottom: 14px;
 }
-.nav-item {
-  flex: 1; text-align: center; padding: 10px 0; font-size: 0.72rem;
-  position: relative; cursor: pointer; color: var(--text-muted); background: none; border: none;
-  font-family: inherit;
-}
-.nav-item.active { color: var(--primary-dark); font-weight: 700; }
-.nav-item .badge-dot {
-  display: none; position: absolute; top: 4px; right: 30%;
-  width: 8px; height: 8px; background: var(--danger); border-radius: 50%;
+
+.hero-card { position: relative; }
+.hero-card .badge-dot {
+  display: none; position: absolute; top: 10px; right: 10px;
+  width: 10px; height: 10px; background: var(--danger); border-radius: 50%;
 }
