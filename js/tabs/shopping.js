@@ -112,7 +112,6 @@ function handleDeleteList(id) {
 
   showUndoToast({
     message: `Liste « ${list.name} » supprimée`,
-    duration: 2000,
     onUndo: () => {
       pendingDeleteIds.delete(id);
       renderLists();
