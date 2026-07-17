@@ -13,35 +13,26 @@ export async function getMyHousehold(userId) {
 }
 
 export async function createHousehold(name, userId) {
-  const { data: household, error } = await supabase
-    .from("households")
-    .insert({ name })
-    .select()
-    .single();
+  // Passe par une fonction RPC (security definer) qui crée le foyer ET
+  // ajoute le créateur comme membre en une seule transaction. Nécessaire car
+  // faire les deux inserts séparément depuis le client se heurte à RLS :
+  // au moment de créer le foyer, l'utilisateur n'est pas encore membre,
+  // donc la policy SELECT (utilisée par le RETURNING de l'insert) le bloque.
+  const { data, error } = await supabase.rpc("create_household_with_owner", {
+    household_name: name,
+  });
   if (error) throw error;
-
-  const { error: memberError } = await supabase
-    .from("household_members")
-    .insert({ household_id: household.id, user_id: userId });
-  if (memberError) throw memberError;
-
-  return household;
+  return data;
 }
 
 export async function joinHousehold(inviteCode, userId) {
-  const { data: household, error } = await supabase
-    .from("households")
-    .select("*")
-    .eq("invite_code", inviteCode.trim())
-    .single();
-  if (error || !household) throw new Error("Code d'invitation invalide.");
-
-  const { error: memberError } = await supabase
-    .from("household_members")
-    .insert({ household_id: household.id, user_id: userId });
-  if (memberError) throw memberError;
-
-  return household;
+  // Même raison que createHousehold : impossible de lire "households" par
+  // invite_code avant d'être membre (RLS), donc on passe par une fonction RPC.
+  const { data, error } = await supabase.rpc("join_household_by_code", {
+    code: inviteCode.trim(),
+  });
+  if (error) throw new Error(error.message || "Code d'invitation invalide.");
+  return data;
 }
 
 export async function getHouseholdMembers(householdId) {
