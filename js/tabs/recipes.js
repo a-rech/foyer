@@ -1,6 +1,7 @@
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { showUndoToast } from "../utils/toast.js";
+import { navigateTo } from "../router.js";
 import {
   getCategories,
   createCategory,
@@ -59,6 +60,7 @@ async function loadCategories() {
 async function renderCategoriesView() {
   containerRef.innerHTML = `
     <div class="lists-overview">
+      <button class="home-btn" id="home-btn-recipes">🏠 Accueil</button>
       <form id="new-category-form" class="add-form">
         <input id="new-category-name" placeholder="Nouvelle catégorie…" required />
         <button type="submit">+</button>
@@ -66,6 +68,7 @@ async function renderCategoriesView() {
       <div id="categories-container"></div>
     </div>
   `;
+  document.getElementById("home-btn-recipes").addEventListener("click", () => navigateTo("home"));
   document.getElementById("new-category-form").addEventListener("submit", handleCreateCategory);
   await loadCategories();
 }

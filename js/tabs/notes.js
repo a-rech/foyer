@@ -1,6 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
+import { navigateTo } from "../router.js";
 
 let unsubscribe = null;
 let notes = [];
@@ -13,6 +14,7 @@ export async function mount(container, ctx) {
 
   container.innerHTML = `
     <div class="tab-notes">
+      <button class="home-btn" id="home-btn-notes">🏠 Accueil</button>
       <form id="note-form" class="add-form">
         <input id="note-content" placeholder="Un post-it… (texte ou emoji)" required />
         <button type="submit">+</button>
@@ -21,6 +23,7 @@ export async function mount(container, ctx) {
     </div>
   `;
 
+  document.getElementById("home-btn-notes").addEventListener("click", () => navigateTo("home"));
   document.getElementById("note-form").addEventListener("submit", handleAdd);
 
   await loadNotes();

@@ -1,4 +1,5 @@
 import { navigateTo } from "../router.js";
+import { setBadgeVisible } from "../badges.js";
 
 const SECTIONS = [
   { tab: "shopping", label: "Listes", emoji: "🛒", color: "card-peach" },
@@ -20,6 +21,7 @@ export async function mount(container, ctx) {
           <button class="hero-card ${s.color}" data-tab="${s.tab}">
             <span class="hero-emoji">${s.emoji}</span>
             <span class="hero-label">${s.label}</span>
+            <span class="badge-dot" data-tab-badge="${s.tab}"></span>
           </button>
         `
         ).join("")}
@@ -28,7 +30,10 @@ export async function mount(container, ctx) {
   `;
 
   container.querySelectorAll(".hero-card").forEach((el) => {
-    el.addEventListener("click", () => navigateTo(el.dataset.tab));
+    el.addEventListener("click", () => {
+      setBadgeVisible(el.dataset.tab, false);
+      navigateTo(el.dataset.tab);
+    });
   });
 }
 

@@ -3,6 +3,7 @@ import { subscribeToTable, writeOrQueue } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { getLists, createList, deleteList, getItemsForList } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
+import { navigateTo } from "../router.js";
 
 let unsubscribeLists = null;
 let unsubscribeItems = null;
@@ -48,6 +49,7 @@ async function loadLists() {
 async function renderListsView() {
   containerRef.innerHTML = `
     <div class="lists-overview">
+      <button class="home-btn" id="home-btn-lists">🏠 Accueil</button>
       <form id="new-list-form" class="add-form">
         <input id="new-list-name" placeholder="Nouvelle liste…" required />
         <button type="submit">+</button>
@@ -55,6 +57,7 @@ async function renderListsView() {
       <div id="lists-container"></div>
     </div>
   `;
+  document.getElementById("home-btn-lists").addEventListener("click", () => navigateTo("home"));
   document.getElementById("new-list-form").addEventListener("submit", handleCreateList);
   await loadLists();
 }

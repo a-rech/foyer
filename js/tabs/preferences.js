@@ -1,11 +1,13 @@
 import { getUserPreferences, savePreferences, requestNotificationPermission } from "../notifications.js";
 import { signOut } from "../auth.js";
+import { navigateTo } from "../router.js";
 
 export async function mount(container, ctx) {
   const prefs = await getUserPreferences(ctx.userId);
 
   container.innerHTML = `
     <div class="tab-preferences">
+      <button class="home-btn" id="home-btn-prefs">🏠 Accueil</button>
       <h3>Notifications</h3>
       <label>
         <input type="checkbox" id="notif-enabled" ${prefs.notifications_enabled ? "checked" : ""} />
@@ -26,6 +28,8 @@ export async function mount(container, ctx) {
       <button id="logout-btn">Déconnexion</button>
     </div>
   `;
+
+  document.getElementById("home-btn-prefs").addEventListener("click", () => navigateTo("home"));
 
   document.getElementById("save-prefs").addEventListener("click", async () => {
     await savePreferences(ctx.userId, {

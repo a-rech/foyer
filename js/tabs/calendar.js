@@ -1,6 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
+import { navigateTo } from "../router.js";
 
 let unsubscribe = null;
 let events = [];
@@ -13,6 +14,7 @@ export async function mount(container, ctx) {
 
   container.innerHTML = `
     <div class="tab-calendar">
+      <button class="home-btn" id="home-btn-calendar">🏠 Accueil</button>
       <form id="event-form" class="add-form">
         <input id="e-title" placeholder="Titre de l'événement" required />
         <input id="e-start" type="datetime-local" required />
@@ -23,6 +25,7 @@ export async function mount(container, ctx) {
     </div>
   `;
 
+  document.getElementById("home-btn-calendar").addEventListener("click", () => navigateTo("home"));
   document.getElementById("event-form").addEventListener("submit", handleAdd);
 
   await loadEvents();
