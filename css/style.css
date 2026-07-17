@@ -1,0 +1,62 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  padding-bottom: 64px;
+}
+
+#app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #fff; }
+
+.screen { padding: 24px 16px; }
+.screen h1 { font-size: 1.4rem; }
+.screen input, .screen button, .add-form input, .add-form select {
+  width: 100%; padding: 10px; margin: 6px 0; border-radius: 8px;
+  border: 1px solid #ccc; font-size: 1rem;
+}
+.screen button, .add-form button, .form-actions button {
+  background: #2563eb; color: #fff; border: none; cursor: pointer;
+}
+.error-msg { color: #dc2626; font-size: 0.9rem; }
+
+#tab-content { padding: 12px 16px 24px; }
+
+.add-form { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.add-form input { flex: 2; width: auto; }
+.add-form select { flex: 1; width: auto; }
+.add-form button { flex: 0 0 44px; width: auto; }
+
+.category-group h3 { font-size: 0.9rem; color: #666; margin: 16px 0 6px; text-transform: uppercase; }
+.shopping-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eee; }
+.shopping-item.checked .item-name { text-decoration: line-through; color: #999; }
+.item-name { flex: 1; }
+.item-qty { color: #666; font-size: 0.85rem; }
+.shopping-item button { width: auto; background: none; color: #999; }
+
+.recipe-card { border-bottom: 1px solid #eee; padding: 10px 0; }
+.recipe-form textarea { width: 100%; min-height: 60px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; margin: 4px 0; }
+
+.event-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
+.event-item.past { opacity: 0.5; }
+.event-date { margin-left: auto; color: #666; font-size: 0.85rem; }
+
+.note-board { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.sticky-note { background: #fef08a; padding: 12px; border-radius: 6px; width: 130px; min-height: 100px; box-shadow: 1px 2px 4px rgba(0,0,0,0.1); }
+.sticky-note button { background: none; border: none; color: #666; font-size: 0.75rem; padding: 0; margin-top: 8px; }
+
+nav#bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: space-around;
+  background: #fff; border-top: 1px solid #ddd;
+  max-width: 480px; margin: 0 auto;
+}
+.nav-item {
+  flex: 1; text-align: center; padding: 10px 0; font-size: 0.75rem;
+  position: relative; cursor: pointer; color: #666; background: none; border: none;
+}
+.nav-item.active { color: #2563eb; font-weight: bold; }
+.nav-item .badge-dot {
+  display: none; position: absolute; top: 4px; right: 30%;
+  width: 8px; height: 8px; background: #dc2626; border-radius: 50%;
+}
