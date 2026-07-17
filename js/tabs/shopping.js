@@ -3,7 +3,7 @@ import { subscribeToTable, writeOrQueue } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { getLists, createList, deleteList, getItemsForList } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
-import { navigateTo } from "../router.js";
+import { pushView, goBack, goHome } from "../router.js";
 
 let unsubscribeLists = null;
 let unsubscribeItems = null;
@@ -57,7 +57,7 @@ async function renderListsView() {
       <div id="lists-container"></div>
     </div>
   `;
-  document.getElementById("home-btn-lists").addEventListener("click", () => navigateTo("home"));
+  document.getElementById("home-btn-lists").addEventListener("click", () => goHome());
   document.getElementById("new-list-form").addEventListener("submit", handleCreateList);
   await loadLists();
 }
@@ -136,6 +136,13 @@ async function openList(list) {
 
   if (unsubscribeItems) unsubscribeItems();
 
+  pushView(() => {
+    if (unsubscribeItems) unsubscribeItems();
+    unsubscribeItems = null;
+    view = "lists";
+    renderListsView();
+  });
+
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-lists" class="back-btn">‹ Toutes les listes</button>
@@ -149,11 +156,7 @@ async function openList(list) {
     </div>
   `;
 
-  document.getElementById("back-to-lists").addEventListener("click", async () => {
-    view = "lists";
-    if (unsubscribeItems) unsubscribeItems();
-    await renderListsView();
-  });
+  document.getElementById("back-to-lists").addEventListener("click", () => goBack());
   document.getElementById("add-item-form").addEventListener("submit", handleAddItem);
 
   await loadItems();

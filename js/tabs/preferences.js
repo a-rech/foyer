@@ -1,6 +1,6 @@
 import { getUserPreferences, savePreferences, requestNotificationPermission } from "../notifications.js";
 import { signOut } from "../auth.js";
-import { navigateTo } from "../router.js";
+import { goHome } from "../router.js";
 
 export async function mount(container, ctx) {
   const prefs = await getUserPreferences(ctx.userId);
@@ -29,7 +29,7 @@ export async function mount(container, ctx) {
     </div>
   `;
 
-  document.getElementById("home-btn-prefs").addEventListener("click", () => navigateTo("home"));
+  document.getElementById("home-btn-prefs").addEventListener("click", () => goHome());
 
   document.getElementById("save-prefs").addEventListener("click", async () => {
     await savePreferences(ctx.userId, {

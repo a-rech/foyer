@@ -1,7 +1,7 @@
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { showUndoToast } from "../utils/toast.js";
-import { navigateTo } from "../router.js";
+import { pushView, goBack, goHome } from "../router.js";
 import {
   getCategories,
   createCategory,
@@ -68,7 +68,7 @@ async function renderCategoriesView() {
       <div id="categories-container"></div>
     </div>
   `;
-  document.getElementById("home-btn-recipes").addEventListener("click", () => navigateTo("home"));
+  document.getElementById("home-btn-recipes").addEventListener("click", () => goHome());
   document.getElementById("new-category-form").addEventListener("submit", handleCreateCategory);
   await loadCategories();
 }
@@ -165,7 +165,21 @@ function handleDeleteCategory(id) {
 // ==========================================
 // VUE 2 : recettes d'une catégorie
 // ==========================================
+
+// Navigation "avant" depuis la liste des catégories : empile le retour
 async function openCategory(category) {
+  pushView(() => {
+    if (unsubscribeRecipes) unsubscribeRecipes();
+    unsubscribeRecipes = null;
+    view = "categories";
+    renderCategoriesView();
+  });
+  await renderCategoryScreen(category);
+}
+
+// Dessine l'écran des recettes d'une catégorie (réutilisé aussi comme
+// restauration lors d'un retour depuis le détail d'une recette)
+async function renderCategoryScreen(category) {
   view = "recipes";
   currentCategory = category;
   if (unsubscribeRecipes) unsubscribeRecipes();
@@ -179,11 +193,7 @@ async function openCategory(category) {
     </div>
   `;
 
-  document.getElementById("back-to-categories").addEventListener("click", async () => {
-    view = "categories";
-    if (unsubscribeRecipes) unsubscribeRecipes();
-    await renderCategoriesView();
-  });
+  document.getElementById("back-to-categories").addEventListener("click", () => goBack());
   document.getElementById("new-recipe-btn").addEventListener("click", () => openRecipeDetail(null));
 
   await loadRecipes();
@@ -261,6 +271,8 @@ function openRecipeDetail(recipe) {
   view = "recipe-detail";
   currentRecipe = recipe;
 
+  pushView(() => renderCategoryScreen(currentCategory));
+
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-recipes" class="back-btn">‹ ${currentCategory.name}</button>
@@ -274,7 +286,7 @@ function openRecipeDetail(recipe) {
     </div>
   `;
 
-  document.getElementById("back-to-recipes").addEventListener("click", () => openCategory(currentCategory));
+  document.getElementById("back-to-recipes").addEventListener("click", () => goBack());
   document.getElementById("recipe-form").addEventListener("submit", handleSaveRecipe);
 }
 
@@ -298,5 +310,5 @@ async function handleSaveRecipe(e) {
     });
   }
 
-  openCategory(currentCategory);
+  goBack();
 }

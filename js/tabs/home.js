@@ -1,4 +1,4 @@
-import { navigateTo } from "../router.js";
+import { enterTab } from "../router.js";
 import { setBadgeVisible } from "../badges.js";
 
 const SECTIONS = [
@@ -32,7 +32,7 @@ export async function mount(container, ctx) {
   container.querySelectorAll(".hero-card").forEach((el) => {
     el.addEventListener("click", () => {
       setBadgeVisible(el.dataset.tab, false);
-      navigateTo(el.dataset.tab);
+      enterTab(el.dataset.tab);
     });
   });
 }

@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
-import { navigateTo } from "../router.js";
+import { goHome } from "../router.js";
 
 let unsubscribe = null;
 let events = [];
@@ -25,7 +25,7 @@ export async function mount(container, ctx) {
     </div>
   `;
 
-  document.getElementById("home-btn-calendar").addEventListener("click", () => navigateTo("home"));
+  document.getElementById("home-btn-calendar").addEventListener("click", () => goHome());
   document.getElementById("event-form").addEventListener("submit", handleAdd);
 
   await loadEvents();
