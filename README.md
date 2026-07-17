@@ -2,6 +2,8 @@
 
 PWA collaborative pour un foyer : liste de courses, recettes, calendrier, bac à sable de notes, synchronisés en temps réel entre les membres.
 
+🔗 **[Ouvrir l'application](https://a-rech.github.io/Foyer/)**
+
 ## Stack
 
 - Frontend : HTML/CSS/JS vanilla (ES modules, aucun build tool)
