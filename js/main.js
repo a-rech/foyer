@@ -127,7 +127,7 @@ function renderAppShell(user, household) {
     <div id="tab-content"></div>
     <nav id="bottom-nav">
       <button class="nav-item" data-tab="home">🏠<br>Accueil</button>
-      <button class="nav-item" data-tab="shopping">🛒<br>Courses<span class="badge-dot" data-tab-badge="shopping"></span></button>
+      <button class="nav-item" data-tab="shopping">🛒<br>Listes<span class="badge-dot" data-tab-badge="shopping"></span></button>
       <button class="nav-item" data-tab="recipes">🍽️<br>Recettes<span class="badge-dot" data-tab-badge="recipes"></span></button>
       <button class="nav-item" data-tab="calendar">📅<br>Calendrier<span class="badge-dot" data-tab-badge="calendar"></span></button>
       <button class="nav-item" data-tab="notes">📝<br>Notes<span class="badge-dot" data-tab-badge="notes"></span></button>
