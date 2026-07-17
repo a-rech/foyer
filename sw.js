@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 4;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "/index.html",
@@ -15,6 +15,7 @@ const APP_SHELL = [
   "/js/notifications.js",
   "/js/router.js",
   "/js/utils/db.js",
+  "/js/tabs/home.js",
   "/js/tabs/shopping.js",
   "/js/tabs/recipes.js",
   "/js/tabs/calendar.js",
@@ -23,7 +24,17 @@ const APP_SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // On met chaque fichier en cache individuellement : si l'un d'eux
+      // est manquant ou 404, ça ne fait pas échouer toute l'installation
+      // (contrairement à cache.addAll qui est tout-ou-rien).
+      const results = await Promise.allSettled(APP_SHELL.map((url) => cache.add(url)));
+      results.forEach((r, i) => {
+        if (r.status === "rejected") console.warn("Précache échoué pour", APP_SHELL[i], r.reason);
+      });
+    })
+  );
   self.skipWaiting();
 });
 

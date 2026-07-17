@@ -1,62 +1,149 @@
+/* ==========================================
+   THEME PASTEL CHALEUREUX
+   ========================================== */
+:root {
+  --bg: #FFF8F0;
+  --surface: #FFFFFF;
+  --text: #4A3F35;
+  --text-muted: #9C8F82;
+  --border: #F0E4D8;
+
+  --primary: #F4A896;       /* corail pastel */
+  --primary-dark: #E88B76;
+
+  --card-peach: #FFD9C4;
+  --card-peach-text: #B5573B;
+  --card-mint: #C8EBD9;
+  --card-mint-text: #2F8560;
+  --card-sky: #C9E4F5;
+  --card-sky-text: #2E6E97;
+  --card-yellow: #FFEBB0;
+  --card-yellow-text: #9A7415;
+  --card-lavender: #E3D9F5;
+  --card-lavender-text: #6B4FA0;
+
+  --danger: #E27D6A;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 4px 14px rgba(180, 140, 100, 0.12);
+}
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f5f5f5;
-  color: #1a1a1a;
-  padding-bottom: 64px;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: 76px;
 }
 
-#app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #fff; }
+#app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--bg); }
 
-.screen { padding: 24px 16px; }
-.screen h1 { font-size: 1.4rem; }
+.screen { padding: 32px 20px; }
+.screen h1 { font-size: 1.5rem; margin-bottom: 4px; }
 .screen input, .screen button, .add-form input, .add-form select {
-  width: 100%; padding: 10px; margin: 6px 0; border-radius: 8px;
-  border: 1px solid #ccc; font-size: 1rem;
+  width: 100%; padding: 12px 14px; margin: 6px 0; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); font-size: 1rem; font-family: inherit;
+  background: var(--surface);
 }
 .screen button, .add-form button, .form-actions button {
-  background: #2563eb; color: #fff; border: none; cursor: pointer;
+  background: var(--primary); color: #fff; border: none; cursor: pointer;
+  font-weight: 600; transition: background 0.15s;
 }
-.error-msg { color: #dc2626; font-size: 0.9rem; }
+.screen button:hover, .add-form button:hover { background: var(--primary-dark); }
+.error-msg { color: var(--danger); font-size: 0.9rem; }
+
+/* Écran de confirmation du foyer */
+.confirm-screen { text-align: center; padding-top: 80px; }
+.confirm-label { color: var(--text-muted); margin-bottom: 4px; }
+.confirm-household-name { font-size: 1.8rem; margin-bottom: 32px; }
+
+/* Page d'accueil */
+.home-screen { padding: 28px 20px 12px; }
+.home-greeting { color: var(--text-muted); margin: 0 0 2px; font-size: 0.95rem; }
+.home-household-name { font-size: 1.7rem; margin: 0 0 24px; }
+
+.hero-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.hero-card {
+  border: none; border-radius: var(--radius); padding: 24px 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer; box-shadow: var(--shadow); font-family: inherit;
+  transition: transform 0.12s;
+}
+.hero-card:active { transform: scale(0.97); }
+.hero-emoji { font-size: 2.2rem; }
+.hero-label { font-weight: 700; font-size: 1rem; }
+
+.card-peach { background: var(--card-peach); color: var(--card-peach-text); }
+.card-mint { background: var(--card-mint); color: var(--card-mint-text); }
+.card-sky { background: var(--card-sky); color: var(--card-sky-text); }
+.card-yellow { background: var(--card-yellow); color: var(--card-yellow-text); }
+.card-lavender { background: var(--card-lavender); color: var(--card-lavender-text); grid-column: span 2; flex-direction: row; justify-content: center; }
 
 #tab-content { padding: 12px 16px 24px; }
 
 .add-form { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .add-form input { flex: 2; width: auto; }
 .add-form select { flex: 1; width: auto; }
-.add-form button { flex: 0 0 44px; width: auto; }
+.add-form button { flex: 0 0 46px; width: auto; border-radius: var(--radius-sm); }
 
-.category-group h3 { font-size: 0.9rem; color: #666; margin: 16px 0 6px; text-transform: uppercase; }
-.shopping-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eee; }
-.shopping-item.checked .item-name { text-decoration: line-through; color: #999; }
+.category-group h3 { font-size: 0.85rem; color: var(--text-muted); margin: 18px 0 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+.shopping-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 6px;
+  box-shadow: var(--shadow);
+}
+.shopping-item.checked { opacity: 0.55; }
+.shopping-item.checked .item-name { text-decoration: line-through; }
 .item-name { flex: 1; }
-.item-qty { color: #666; font-size: 0.85rem; }
-.shopping-item button { width: auto; background: none; color: #999; }
+.item-qty { color: var(--text-muted); font-size: 0.85rem; }
+.shopping-item button { width: auto; background: none; color: var(--text-muted); font-size: 1.1rem; }
 
-.recipe-card { border-bottom: 1px solid #eee; padding: 10px 0; }
-.recipe-form textarea { width: 100%; min-height: 60px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; margin: 4px 0; }
+.recipe-card {
+  background: var(--surface); border-radius: var(--radius-sm); padding: 14px;
+  margin-bottom: 10px; box-shadow: var(--shadow);
+}
+.recipe-card summary { font-weight: 700; cursor: pointer; }
+.recipe-form textarea {
+  width: 100%; min-height: 60px; padding: 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); margin: 4px 0; font-family: inherit;
+}
 
-.event-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
+.event-item {
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 6px;
+  box-shadow: var(--shadow);
+}
 .event-item.past { opacity: 0.5; }
-.event-date { margin-left: auto; color: #666; font-size: 0.85rem; }
+.event-date { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
 
-.note-board { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
-.sticky-note { background: #fef08a; padding: 12px; border-radius: 6px; width: 130px; min-height: 100px; box-shadow: 1px 2px 4px rgba(0,0,0,0.1); }
-.sticky-note button { background: none; border: none; color: #666; font-size: 0.75rem; padding: 0; margin-top: 8px; }
+.note-board { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.sticky-note {
+  background: var(--card-yellow); color: var(--card-yellow-text);
+  padding: 14px; border-radius: var(--radius-sm); width: 130px; min-height: 100px;
+  box-shadow: var(--shadow); font-weight: 500;
+}
+.sticky-note button {
+  background: none; border: none; color: inherit; opacity: 0.7;
+  font-size: 0.75rem; padding: 0; margin-top: 10px; cursor: pointer;
+}
 
 nav#bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   display: flex; justify-content: space-around;
-  background: #fff; border-top: 1px solid #ddd;
-  max-width: 480px; margin: 0 auto;
+  background: var(--surface); border-top: 1px solid var(--border);
+  max-width: 480px; margin: 0 auto; padding: 4px 0;
 }
 .nav-item {
-  flex: 1; text-align: center; padding: 10px 0; font-size: 0.75rem;
-  position: relative; cursor: pointer; color: #666; background: none; border: none;
+  flex: 1; text-align: center; padding: 10px 0; font-size: 0.72rem;
+  position: relative; cursor: pointer; color: var(--text-muted); background: none; border: none;
+  font-family: inherit;
 }
-.nav-item.active { color: #2563eb; font-weight: bold; }
+.nav-item.active { color: var(--primary-dark); font-weight: 700; }
 .nav-item .badge-dot {
   display: none; position: absolute; top: 4px; right: 30%;
-  width: 8px; height: 8px; background: #dc2626; border-radius: 50%;
+  width: 8px; height: 8px; background: var(--danger); border-radius: 50%;
 }

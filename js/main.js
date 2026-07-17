@@ -5,6 +5,7 @@ import { registerTab, navigateTo, initRouter } from "./router.js";
 import { subscribeToTable } from "./sync.js";
 import { getLastSeenMap, shouldShowBadge, setBadgeVisible } from "./badges.js";
 
+import * as homeTab from "./tabs/home.js";
 import * as shoppingTab from "./tabs/shopping.js";
 import * as recipesTab from "./tabs/recipes.js";
 import * as calendarTab from "./tabs/calendar.js";
@@ -20,7 +21,22 @@ async function boot() {
   const household = await getMyHousehold(user.id);
   if (!household) return renderHouseholdScreen(user);
 
-  renderAppShell(user, household);
+  renderHouseholdConfirmScreen(user, household);
+}
+
+// ---------- Écran de confirmation du foyer ----------
+function renderHouseholdConfirmScreen(user, household) {
+  appEl.innerHTML = `
+    <div class="screen confirm-screen">
+      <p class="confirm-label">Vous êtes connecté au foyer</p>
+      <h1 class="confirm-household-name">${household.name}</h1>
+      <button id="confirm-continue-btn">Continuer</button>
+    </div>
+  `;
+
+  document.getElementById("confirm-continue-btn").addEventListener("click", () => {
+    renderAppShell(user, household);
+  });
 }
 
 // ---------- Écran connexion ----------
@@ -110,6 +126,7 @@ function renderAppShell(user, household) {
   appEl.innerHTML = `
     <div id="tab-content"></div>
     <nav id="bottom-nav">
+      <button class="nav-item" data-tab="home">🏠<br>Accueil</button>
       <button class="nav-item" data-tab="shopping">🛒<br>Courses<span class="badge-dot" data-tab-badge="shopping"></span></button>
       <button class="nav-item" data-tab="recipes">🍽️<br>Recettes<span class="badge-dot" data-tab-badge="recipes"></span></button>
       <button class="nav-item" data-tab="calendar">📅<br>Calendrier<span class="badge-dot" data-tab-badge="calendar"></span></button>
@@ -121,13 +138,14 @@ function renderAppShell(user, household) {
   const ctx = { userId: user.id, householdId: household.id, household };
 
   // Enregistre chaque onglet avec son contexte (foyer + user) injecté au mount
+  registerTab("home", { mount: (c) => homeTab.mount(c, ctx), unmount: homeTab.unmount });
   registerTab("shopping", { mount: (c) => shoppingTab.mount(c, ctx), unmount: shoppingTab.unmount });
   registerTab("recipes", { mount: (c) => recipesTab.mount(c, ctx), unmount: recipesTab.unmount });
   registerTab("calendar", { mount: (c) => calendarTab.mount(c, ctx), unmount: calendarTab.unmount });
   registerTab("notes", { mount: (c) => notesTab.mount(c, ctx), unmount: notesTab.unmount });
   registerTab("preferences", { mount: (c) => preferencesTab.mount(c, ctx), unmount: preferencesTab.unmount });
 
-  initRouter("shopping");
+  initRouter("home");
   watchBadgesInBackground(ctx);
 }
 
