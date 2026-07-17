@@ -1,29 +1,29 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 7;
+const CACHE_VERSION = 8;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
-  "/index.html",
-  "/manifest.json",
-  "/css/style.css",
-  "/js/supabase-client.js",
-  "/js/auth.js",
-  "/js/household.js",
-  "/js/sync.js",
-  "/js/lists.js",
-  "/js/categories.js",
-  "/js/badges.js",
-  "/js/notifications.js",
-  "/js/router.js",
-  "/js/utils/db.js",
-  "/js/utils/toast.js",
-  "/js/tabs/home.js",
-  "/js/tabs/shopping.js",
-  "/js/tabs/recipes.js",
-  "/js/tabs/calendar.js",
-  "/js/tabs/notes.js",
-  "/js/tabs/preferences.js",
+  "index.html",
+  "manifest.json",
+  "css/style.css",
+  "js/supabase-client.js",
+  "js/auth.js",
+  "js/household.js",
+  "js/sync.js",
+  "js/lists.js",
+  "js/categories.js",
+  "js/badges.js",
+  "js/notifications.js",
+  "js/router.js",
+  "js/utils/db.js",
+  "js/utils/toast.js",
+  "js/tabs/home.js",
+  "js/tabs/shopping.js",
+  "js/tabs/recipes.js",
+  "js/tabs/calendar.js",
+  "js/tabs/notes.js",
+  "js/tabs/preferences.js",
 ];
 
 self.addEventListener("install", (event) => {
@@ -67,5 +67,5 @@ self.addEventListener("fetch", (event) => {
 // Réception d'une notification Web Push (branchée en V2 via une Edge Function)
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : { title: "Foyer", body: "" };
-  event.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: "/icons/icon-192.png" }));
+  event.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: "icons/icon-192.png" }));
 });
