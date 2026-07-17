@@ -1,7 +1,7 @@
 // Affiche un toast en bas de l'écran pendant `duration` ms avec un bouton "Annuler".
 // Si l'utilisateur clique sur Annuler avant la fin, `onUndo` est appelé et
 // `onConfirm` n'est jamais déclenché. Sinon, `onConfirm` est appelé à l'expiration.
-export function showUndoToast({ message, duration = 2000, onUndo, onConfirm }) {
+export function showUndoToast({ message, duration = 3000, onUndo, onConfirm }) {
   const toast = document.createElement("div");
   toast.className = "undo-toast";
   toast.innerHTML = `<span>${message}</span><button type="button">Annuler</button>`;
