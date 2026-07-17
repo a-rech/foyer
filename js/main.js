@@ -21,22 +21,7 @@ async function boot() {
   const household = await getMyHousehold(user.id);
   if (!household) return renderHouseholdScreen(user);
 
-  renderHouseholdConfirmScreen(user, household);
-}
-
-// ---------- Écran de confirmation du foyer ----------
-function renderHouseholdConfirmScreen(user, household) {
-  appEl.innerHTML = `
-    <div class="screen confirm-screen">
-      <p class="confirm-label">Vous êtes connecté au foyer</p>
-      <h1 class="confirm-household-name">${household.name}</h1>
-      <button id="confirm-continue-btn">Continuer</button>
-    </div>
-  `;
-
-  document.getElementById("confirm-continue-btn").addEventListener("click", () => {
-    renderAppShell(user, household);
-  });
+  renderAppShell(user, household);
 }
 
 // ---------- Écran connexion ----------
@@ -123,17 +108,7 @@ function renderHouseholdScreen(user) {
 
 // ---------- App principale ----------
 function renderAppShell(user, household) {
-  appEl.innerHTML = `
-    <div id="tab-content"></div>
-    <nav id="bottom-nav">
-      <button class="nav-item" data-tab="home">🏠<br>Accueil</button>
-      <button class="nav-item" data-tab="shopping">🛒<br>Listes<span class="badge-dot" data-tab-badge="shopping"></span></button>
-      <button class="nav-item" data-tab="recipes">🍽️<br>Recettes<span class="badge-dot" data-tab-badge="recipes"></span></button>
-      <button class="nav-item" data-tab="calendar">📅<br>Calendrier<span class="badge-dot" data-tab-badge="calendar"></span></button>
-      <button class="nav-item" data-tab="notes">📝<br>Notes<span class="badge-dot" data-tab-badge="notes"></span></button>
-      <button class="nav-item" data-tab="preferences">⚙️<br>Réglages</button>
-    </nav>
-  `;
+  appEl.innerHTML = `<div id="tab-content"></div>`;
 
   const ctx = { userId: user.id, householdId: household.id, household };
 
