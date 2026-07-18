@@ -61,6 +61,7 @@ body {
 
 /* Boutons secondaires : fond pastel lavande au lieu du corail plein */
 .screen button.secondary,
+button.secondary,
 #cancel-recipe,
 .back-btn,
 #request-permission,
@@ -68,6 +69,7 @@ body {
   background: var(--secondary-bg); color: var(--secondary-text);
 }
 .screen button.secondary:hover,
+button.secondary:hover,
 #cancel-recipe:hover,
 .back-btn:hover,
 #request-permission:hover,
@@ -75,6 +77,16 @@ body {
   filter: brightness(0.96);
 }
 .back-btn { width: auto; padding: 8px 14px; margin-bottom: 12px; font-size: 0.9rem; }
+
+.list-detail button[type="submit"], .recipe-form button[type="submit"] {
+  background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm);
+  padding: 12px 14px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 6px;
+  font-family: inherit; font-size: 1rem;
+}
+button.secondary {
+  border: none; border-radius: var(--radius-sm); padding: 10px 14px;
+  font-weight: 600; cursor: pointer; font-family: inherit; font-size: 0.9rem;
+}
 .error-msg { color: var(--danger); font-size: 0.9rem; }
 
 /* Écran de confirmation du foyer */
@@ -143,16 +155,33 @@ body {
 .event-item.past { opacity: 0.5; }
 .event-date { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
 
-.note-board { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-.sticky-note {
+.note-board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.note-card {
   background: var(--card-yellow); color: var(--card-yellow-text);
-  padding: 14px; border-radius: var(--radius-sm); width: 130px; min-height: 100px;
-  box-shadow: var(--shadow); font-weight: 500;
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  min-height: 110px; transition: opacity 0.15s;
 }
-.sticky-note button {
-  background: none; border: none; color: inherit; opacity: 0.7;
-  font-size: 0.75rem; padding: 0; margin-top: 10px; cursor: pointer;
+.note-card.dragging { opacity: 0.5; }
+.note-card-header { display: flex; justify-content: space-between; align-items: center; }
+.drag-handle {
+  cursor: grab; touch-action: none; font-size: 1.1rem; opacity: 0.6;
+  padding: 4px 6px; user-select: none;
 }
+.favorite-btn {
+  width: auto; background: none; border: none; font-size: 1.1rem;
+  cursor: pointer; padding: 2px 4px; opacity: 0.6;
+}
+.favorite-btn.is-favorite { opacity: 1; }
+.note-card-content {
+  margin: 0; font-weight: 500; cursor: pointer; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.note-detail-actions { display: flex; gap: 10px; margin-top: 10px; }
+.note-detail-actions button { width: auto; flex: 1; }
+.danger-btn { background: var(--danger-bg); color: var(--danger); border: none; }
+.danger-btn:hover { filter: brightness(0.96); }
 
 .empty-state { color: var(--text-muted); text-align: center; padding: 32px 0; }
 
