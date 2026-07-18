@@ -10,16 +10,26 @@ const INITIAL_PAST_WEEKS = 4;
 const INITIAL_FUTURE_WEEKS = 10;
 const LOAD_CHUNK_WEEKS = 6;
 const IMPORTANT_WINDOW_DAYS = 60;
-const SCROLL_EDGE_THRESHOLD = 250; // px avant le bord pour déclencher un chargement
+const SCROLL_EDGE_THRESHOLD = 250;
+
+// Teinte par mois (Jan → Déc) : cycle complet, ~30° d'écart entre mois
+// consécutifs, froid (bleu) en hiver, chaud (jaune/orange) en été.
+const MONTH_HUES = [225, 200, 165, 135, 100, 70, 45, 20, 355, 325, 290, 255];
+function monthBg(monthIndex) {
+  return `hsl(${MONTH_HUES[monthIndex]}, 48%, 91%)`;
+}
+function monthText(monthIndex) {
+  return `hsl(${MONTH_HUES[monthIndex]}, 55%, 38%)`;
+}
 
 let unsubscribe = null;
-let eventsById = new Map(); // toutes les occurrences chargées, dédupliquées par id
-let loadedWeeks = []; // array de lundis (Date), trié croissant
+let eventsById = new Map();
+let loadedWeeks = [];
 let isLoadingMore = false;
 let view = "overview"; // "overview" | "day" | "event-detail"
 let currentDay = null;
 let currentEvent = null;
-let eventReturnTo = "day"; // "day" | "overview" - où revenir après le formulaire d'événement
+let eventReturnTo = "day";
 let containerRef = null;
 let currentHouseholdId = null;
 let currentUserId = null;
@@ -36,7 +46,7 @@ export async function mount(container, ctx) {
   await markTabSeen(currentUserId, "calendar");
   await renderOverview();
 
-  unsubscribe = subscribeToTable("events", currentHouseholdId, async (payload) => {
+  unsubscribe = subscribeToTable("events", currentHouseholdId, async () => {
     if (view !== "overview") return;
     await mergeEventsForLoadedRange();
     renderAllWeeks();
@@ -90,6 +100,25 @@ function throttle(fn, wait) {
   };
 }
 
+// Un anniversaire revient chaque année : on ne compare que mois + jour.
+function eventOccursOnDay(event, day) {
+  const start = new Date(event.start_at);
+  if (event.is_birthday) {
+    return start.getMonth() === day.getMonth() && start.getDate() === day.getDate();
+  }
+  return isSameDay(start, day);
+}
+
+// Prochaine occurrence d'un événement à partir de `from` (utile pour les
+// anniversaires récurrents dans la liste des événements importants à venir)
+function nextOccurrence(event, from) {
+  const start = new Date(event.start_at);
+  if (!event.is_birthday) return start;
+  let occurrence = new Date(from.getFullYear(), start.getMonth(), start.getDate());
+  if (occurrence < from) occurrence = new Date(from.getFullYear() + 1, start.getMonth(), start.getDate());
+  return occurrence;
+}
+
 // ==========================================
 // VUE 1 : calendrier défilant + événements importants à venir
 // ==========================================
@@ -102,7 +131,9 @@ async function renderOverview() {
         <button class="home-btn" id="home-btn-calendar">🏠 Accueil</button>
         <button class="home-btn" id="new-event-btn">+ Nouvel événement</button>
       </div>
-      <div id="month-year-label" class="month-year-label"></div>
+      <div class="month-year-label">
+        <span id="month-label"></span> <span id="year-label"></span>
+      </div>
       <div class="week-headers">
         ${WEEKDAY_LABELS.map((d) => `<span>${d}</span>`).join("")}
       </div>
@@ -110,7 +141,7 @@ async function renderOverview() {
         <div id="week-grid" class="week-grid"></div>
       </div>
       <h3 class="upcoming-title">⭐ Événements importants à venir</h3>
-      <div id="upcoming-list"></div>
+      <div id="upcoming-list" class="upcoming-list"></div>
     </div>
   `;
 
@@ -120,7 +151,6 @@ async function renderOverview() {
     openEventDetail(null, new Date());
   });
 
-  // Fenêtre initiale : 4 semaines passées de tampon + les 4 semaines demandées + tampon futur
   loadedWeeks = [];
   for (let i = -INITIAL_PAST_WEEKS; i < 4 + INITIAL_FUTURE_WEEKS; i++) {
     loadedWeeks.push(addDays(todayMonday, i * 7));
@@ -130,7 +160,6 @@ async function renderOverview() {
   renderAllWeeks();
   renderUpcomingImportant();
 
-  // Scroll pour amener la semaine en cours en haut de la zone visible
   requestAnimationFrame(() => {
     const scrollEl = document.getElementById("week-scroll");
     const todayRow = scrollEl.querySelector(`[data-monday="${todayMonday.toISOString()}"]`);
@@ -157,10 +186,10 @@ async function mergeEventsForLoadedRange() {
   await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
 }
 
+// Les anniversaires reviennent chaque année : on les cherche dans TOUT le
+// cache, pas seulement dans la fenêtre chargée pour ce jour précis.
 function eventsOnDay(day) {
-  return [...eventsById.values()].filter(
-    (e) => isSameDay(new Date(e.start_at), day) && !pendingDeleteIds.has(e.id)
-  );
+  return [...eventsById.values()].filter((e) => eventOccursOnDay(e, day) && !pendingDeleteIds.has(e.id));
 }
 
 function renderAllWeeks() {
@@ -175,11 +204,14 @@ function renderAllWeeks() {
         const day = addDays(weekStart, i);
         const dayEvents = eventsOnDay(day);
         const isToday = isSameDay(day, today);
+        const hasImportant = dayEvents.some((e) => e.important);
         row += `
-          <button class="day-cell ${isToday ? "is-today" : ""}" data-date="${day.toISOString()}">
-            <span class="day-number">${day.getDate()}</span>
-            ${dayEvents.length > 0 ? `<span class="day-dot">${dayEvents.some((e) => e.important) ? "⭐" : "•"}</span>` : ""}
-          </button>
+          <div class="day-slot" style="background:${monthBg(day.getMonth())}">
+            <button class="day-cell ${isToday ? "is-today" : ""}" data-date="${day.toISOString()}">
+              <span class="day-number">${day.getDate()}</span>
+              ${dayEvents.length > 0 ? `<span class="day-event-bar ${hasImportant ? "is-important" : ""}"></span>` : ""}
+            </button>
+          </div>
         `;
       }
       row += `</div>`;
@@ -228,8 +260,9 @@ async function onWeekScroll(e) {
 
 function updateMonthLabel() {
   const scrollEl = document.getElementById("week-scroll");
-  const label = document.getElementById("month-year-label");
-  if (!scrollEl || !label) return;
+  const monthLabel = document.getElementById("month-label");
+  const yearLabel = document.getElementById("year-label");
+  if (!scrollEl || !monthLabel) return;
 
   const rows = [...scrollEl.querySelectorAll(".week-row")];
   const containerTop = scrollEl.getBoundingClientRect().top;
@@ -244,8 +277,11 @@ function updateMonthLabel() {
   }
   if (!current) return;
   const monday = new Date(current.dataset.monday);
-  const midWeek = addDays(monday, 3); // jeudi de la semaine = mois "dominant" (convention ISO)
-  label.textContent = capitalize(midWeek.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+  const midWeek = addDays(monday, 3);
+
+  monthLabel.textContent = capitalize(midWeek.toLocaleDateString("fr-FR", { month: "long" }));
+  monthLabel.style.color = monthText(midWeek.getMonth());
+  yearLabel.textContent = midWeek.getFullYear();
 }
 
 function renderUpcomingImportant() {
@@ -253,9 +289,12 @@ function renderUpcomingImportant() {
   if (!el) return;
   const now = new Date();
   const windowEnd = addDays(now, IMPORTANT_WINDOW_DAYS);
+
   const important = [...eventsById.values()]
-    .filter((e) => e.important && !pendingDeleteIds.has(e.id) && new Date(e.start_at) >= now && new Date(e.start_at) <= windowEnd)
-    .sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
+    .filter((e) => e.important && !pendingDeleteIds.has(e.id))
+    .map((e) => ({ event: e, occursAt: nextOccurrence(e, now) }))
+    .filter((x) => x.occursAt >= now && x.occursAt <= windowEnd)
+    .sort((a, b) => a.occursAt - b.occursAt);
 
   if (important.length === 0) {
     el.innerHTML = `<p class="empty-state">Aucun événement important dans les 2 prochains mois.</p>`;
@@ -263,23 +302,22 @@ function renderUpcomingImportant() {
   }
 
   el.innerHTML = important
-    .map((e) => {
-      const date = new Date(e.start_at);
-      return `
+    .map(
+      ({ event: e, occursAt }) => `
       <div class="event-item" data-id="${e.id}">
         ${e.is_birthday ? "🎂" : "⭐"}
         <span class="event-title">${escapeHtml(e.title)}</span>
-        <span class="event-date">${date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+        <span class="event-date">${occursAt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
       </div>
-    `;
-    })
+    `
+    )
     .join("");
 
   el.querySelectorAll(".event-item").forEach((row) => {
     row.addEventListener("click", () => {
-      const event = eventsById.get(row.dataset.id);
+      const item = important.find((x) => x.event.id === row.dataset.id);
       eventReturnTo = "day";
-      openDay(new Date(event.start_at), event);
+      openDay(item.occursAt, item.event);
     });
   });
 }
@@ -315,7 +353,7 @@ async function openDay(day, focusEvent) {
 
   renderHoursGrid(day);
 
-  if (focusEvent) {
+  if (focusEvent && !focusEvent.is_birthday) {
     setTimeout(() => {
       document.getElementById(`hour-${new Date(focusEvent.start_at).getHours()}`)?.scrollIntoView({ block: "center" });
     }, 0);
@@ -327,10 +365,27 @@ function renderHoursGrid(day) {
   if (!grid) return;
 
   const dayEvents = eventsOnDay(day);
+  const allDayEvents = dayEvents.filter((e) => e.is_birthday);
+  const timedEvents = dayEvents.filter((e) => !e.is_birthday);
 
   let html = "";
+  if (allDayEvents.length > 0) {
+    html += `
+      <div class="all-day-section">
+        <span class="all-day-label">Toute la journée</span>
+        ${allDayEvents
+          .map(
+            (e) => `
+          <button class="hour-event all-day-event" data-id="${e.id}">🎂 ${escapeHtml(e.title)}</button>
+        `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
   for (let h = 0; h < 24; h++) {
-    const hourEvents = dayEvents.filter((e) => new Date(e.start_at).getHours() === h);
+    const hourEvents = timedEvents.filter((e) => new Date(e.start_at).getHours() === h);
     html += `
       <div class="hour-row" id="hour-${h}">
         <span class="hour-label">${String(h).padStart(2, "0")}h</span>
@@ -339,7 +394,7 @@ function renderHoursGrid(day) {
             .map(
               (e) => `
             <button class="hour-event" data-id="${e.id}">
-              ${e.important ? "⭐ " : ""}${e.is_birthday ? "🎂 " : ""}${escapeHtml(e.title)}
+              ${e.important ? "⭐ " : ""}${escapeHtml(e.title)}
             </button>
           `
             )
@@ -384,21 +439,52 @@ function openEventDetail(event, day) {
   }
 
   const backLabel = returnTo === "overview" ? "‹ Calendrier" : `‹ ${day.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+  const isBirthday = event?.is_birthday ?? false;
 
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-previous" class="back-btn">${backLabel}</button>
-      <form id="event-detail-form" class="recipe-form">
-        <input id="ev-title" placeholder="Intitulé de l'événement" value="${event ? escapeHtml(event.title) : ""}" required />
+      <form id="event-detail-form" class="event-form">
+        <label class="field-label" for="ev-title">Intitulé</label>
+        <input id="ev-title" placeholder="Ex : Anniversaire de Léa" value="${event ? escapeHtml(event.title) : ""}" required />
+
+        <label class="field-label" for="ev-date">Date</label>
         <input id="ev-date" type="date" value="${toDateInputValue(startDate)}" required />
-        <input id="ev-time" type="time" value="${toTimeInputValue(startDate)}" required />
-        <label><input id="ev-birthday" type="checkbox" ${event?.is_birthday ? "checked" : ""} /> 🎂 Anniversaire</label>
-        <label><input id="ev-important" type="checkbox" ${event?.important ? "checked" : ""} /> ⭐ Important</label>
+
+        <div id="time-field-wrap">
+          <label class="field-label" for="ev-time">Heure</label>
+          <input id="ev-time" type="time" value="${toTimeInputValue(startDate)}" required />
+        </div>
+
+        <label class="checkbox-row">
+          <input id="ev-birthday" type="checkbox" ${isBirthday ? "checked" : ""} />
+          <span>🎂 Anniversaire</span>
+        </label>
+        <p id="birthday-hint" class="field-hint" style="display:${isBirthday ? "block" : "none"}">
+          Affiché toute la journée, chaque année.
+        </p>
+
+        <label class="checkbox-row">
+          <input id="ev-important" type="checkbox" ${event?.important ? "checked" : ""} />
+          <span>⭐ Important</span>
+        </label>
+
         <button type="submit">Enregistrer</button>
       </form>
       ${event ? `<button type="button" id="delete-event-btn" class="danger-btn">Supprimer</button>` : ""}
     </div>
   `;
+
+  const birthdayCheckbox = document.getElementById("ev-birthday");
+  const timeFieldWrap = document.getElementById("time-field-wrap");
+  const birthdayHint = document.getElementById("birthday-hint");
+  const syncBirthdayUI = () => {
+    const checked = birthdayCheckbox.checked;
+    timeFieldWrap.style.display = checked ? "none" : "block";
+    birthdayHint.style.display = checked ? "block" : "none";
+  };
+  birthdayCheckbox.addEventListener("change", syncBirthdayUI);
+  syncBirthdayUI();
 
   document.getElementById("back-to-previous").addEventListener("click", () => goBack());
   document.getElementById("event-detail-form").addEventListener("submit", (e) => handleSaveEvent(e, day));
@@ -409,9 +495,9 @@ async function handleSaveEvent(e, day) {
   e.preventDefault();
   const title = document.getElementById("ev-title").value.trim();
   const dateVal = document.getElementById("ev-date").value;
-  const timeVal = document.getElementById("ev-time").value;
   const isBirthday = document.getElementById("ev-birthday").checked;
   const important = document.getElementById("ev-important").checked;
+  const timeVal = isBirthday ? "00:00" : document.getElementById("ev-time").value;
   if (!title || !dateVal || !timeVal) return;
 
   const startAt = new Date(`${dateVal}T${timeVal}`);
