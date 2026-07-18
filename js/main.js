@@ -1,7 +1,7 @@
 import { supabase } from "./supabase-client.js";
 import { signIn, signUp, getCurrentUser, onAuthChange } from "./auth.js";
 import { getMyHousehold, createHousehold, joinHousehold } from "./household.js";
-import { registerTab, navigateTo, initRouter } from "./router.js";
+import { registerTab, initRouter } from "./router.js";
 import { subscribeToTable } from "./sync.js";
 import { getLastSeenMap, shouldShowBadge, setBadgeVisible } from "./badges.js";
 
