@@ -3,6 +3,7 @@ import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { goHome, pushView, goBack } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
+import { escapeHtml } from "../utils/format.js";
 
 let unsubscribe = null;
 let notes = [];
@@ -269,10 +270,4 @@ function handleDeleteNote(note) {
       await loadNotes();
     },
   });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
