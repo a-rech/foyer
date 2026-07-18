@@ -151,30 +151,46 @@ button.secondary {
 .calendar-top-row .home-btn { flex: 1; margin-bottom: 0; text-align: center; }
 
 .month-year-label {
-  font-size: 1.2rem; font-weight: 700; margin: 4px 0 8px; color: var(--text);
+  font-size: 1.3rem; font-weight: 700; margin: 4px 0 8px;
 }
+.month-year-label #month-label { transition: color 0.2s; }
+.month-year-label #year-label { color: var(--text); font-weight: 600; }
 
 .week-headers {
   display: grid; grid-template-columns: repeat(7, 1fr); text-align: center;
   color: var(--text-muted); font-size: 0.75rem; margin-bottom: 6px;
 }
 .week-scroll {
-  height: 300px; overflow-y: auto; margin-bottom: 20px;
+  height: 440px; overflow-y: auto; margin-bottom: 16px;
   -webkit-overflow-scrolling: touch;
 }
 .week-grid { display: flex; flex-direction: column; gap: 6px; }
 .week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day-slot { border-radius: var(--radius-sm); padding: 3px; transition: background-color 0.2s; }
 .day-cell {
-  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; background: var(--surface); border: none; border-radius: var(--radius-sm);
+  width: 100%; aspect-ratio: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; background: var(--surface); border: none; border-radius: 9px;
   box-shadow: var(--shadow); cursor: pointer; font-family: inherit;
 }
 .day-cell.is-today { background: var(--card-sky); }
 .day-number { font-weight: 600; font-size: 0.95rem; }
-.day-dot { font-size: 0.55rem; line-height: 1; }
-.upcoming-title { font-size: 1rem; margin: 4px 0 10px; }
+.day-event-bar {
+  position: absolute; bottom: 6px; left: 15%; right: 15%; height: 4px;
+  border-radius: 2px; background: var(--primary);
+}
+.day-event-bar.is-important { background: #D9A32B; }
+
+.upcoming-title { font-size: 0.9rem; margin: 4px 0 8px; color: var(--text-muted); }
+.upcoming-list { max-height: 170px; overflow-y: auto; }
+.upcoming-list .event-item { padding: 8px 12px; margin-bottom: 5px; font-size: 0.9rem; }
 
 .hours-grid { display: flex; flex-direction: column; }
+.all-day-section {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 0;
+  border-bottom: 2px solid var(--border); margin-bottom: 4px;
+}
+.all-day-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .hour-row {
   display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);
   min-height: 40px;
@@ -186,7 +202,27 @@ button.secondary {
   border: none; border-radius: var(--radius-sm); padding: 8px 10px; font-size: 0.9rem;
   cursor: pointer; font-family: inherit; font-weight: 600;
 }
+.hour-event.all-day-event { background: var(--card-yellow); color: var(--card-yellow-text); }
 #add-event-btn { width: auto; margin-bottom: 14px; padding: 10px 16px; }
+
+/* Formulaire d'événement : un champ par ligne, texte et zones agrandis */
+.event-form { display: flex; flex-direction: column; }
+.event-form .field-label {
+  font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin: 14px 0 4px;
+}
+.event-form input[type="text"],
+.event-form input:not([type="checkbox"]) {
+  width: 100%; padding: 16px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); font-size: 1.1rem; font-family: inherit;
+  background: var(--surface);
+}
+.event-form input:focus { outline: none; border-color: var(--primary); }
+.checkbox-row {
+  display: flex; align-items: center; gap: 12px; padding: 14px 4px;
+  font-size: 1.05rem; font-weight: 600;
+}
+.checkbox-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); }
+.field-hint { font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 6px 4px; }
 
 .event-item {
   display: flex; align-items: center; gap: 10px; padding: 12px;
