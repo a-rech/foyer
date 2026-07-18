@@ -6,14 +6,20 @@ import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const WEEKS_VISIBLE = 4;
+const INITIAL_PAST_WEEKS = 4;
+const INITIAL_FUTURE_WEEKS = 10;
+const LOAD_CHUNK_WEEKS = 6;
 const IMPORTANT_WINDOW_DAYS = 60;
+const SCROLL_EDGE_THRESHOLD = 250; // px avant le bord pour déclencher un chargement
 
 let unsubscribe = null;
-let events = []; // fenêtre chargée : du lundi de cette semaine à +60 jours
+let eventsById = new Map(); // toutes les occurrences chargées, dédupliquées par id
+let loadedWeeks = []; // array de lundis (Date), trié croissant
+let isLoadingMore = false;
 let view = "overview"; // "overview" | "day" | "event-detail"
 let currentDay = null;
 let currentEvent = null;
+let eventReturnTo = "day"; // "day" | "overview" - où revenir après le formulaire d'événement
 let containerRef = null;
 let currentHouseholdId = null;
 let currentUserId = null;
@@ -24,12 +30,17 @@ export async function mount(container, ctx) {
   currentHouseholdId = ctx.householdId;
   currentUserId = ctx.userId;
   view = "overview";
+  eventsById = new Map();
+  loadedWeeks = [];
 
   await markTabSeen(currentUserId, "calendar");
   await renderOverview();
 
-  unsubscribe = subscribeToTable("events", currentHouseholdId, async () => {
-    if (view === "overview") await loadEvents();
+  unsubscribe = subscribeToTable("events", currentHouseholdId, async (payload) => {
+    if (view !== "overview") return;
+    await mergeEventsForLoadedRange();
+    renderAllWeeks();
+    renderUpcomingImportant();
   });
 }
 
@@ -65,83 +76,185 @@ function toDateInputValue(date) {
 function toTimeInputValue(date) {
   return date.toTimeString().slice(0, 5);
 }
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function throttle(fn, wait) {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last >= wait) {
+      last = now;
+      fn(...args);
+    }
+  };
+}
 
 // ==========================================
-// VUE 1 : semaines glissantes + événements importants à venir
+// VUE 1 : calendrier défilant + événements importants à venir
 // ==========================================
 async function renderOverview() {
+  const todayMonday = getMonday(new Date());
+
   containerRef.innerHTML = `
     <div class="tab-calendar">
-      <button class="home-btn" id="home-btn-calendar">🏠 Accueil</button>
+      <div class="calendar-top-row">
+        <button class="home-btn" id="home-btn-calendar">🏠 Accueil</button>
+        <button class="home-btn" id="new-event-btn">+ Nouvel événement</button>
+      </div>
+      <div id="month-year-label" class="month-year-label"></div>
       <div class="week-headers">
         ${WEEKDAY_LABELS.map((d) => `<span>${d}</span>`).join("")}
       </div>
-      <div id="week-grid" class="week-grid"></div>
+      <div id="week-scroll" class="week-scroll">
+        <div id="week-grid" class="week-grid"></div>
+      </div>
       <h3 class="upcoming-title">⭐ Événements importants à venir</h3>
       <div id="upcoming-list"></div>
     </div>
   `;
 
   document.getElementById("home-btn-calendar").addEventListener("click", () => goHome());
+  document.getElementById("new-event-btn").addEventListener("click", () => {
+    eventReturnTo = "overview";
+    openEventDetail(null, new Date());
+  });
 
-  await loadEvents();
+  // Fenêtre initiale : 4 semaines passées de tampon + les 4 semaines demandées + tampon futur
+  loadedWeeks = [];
+  for (let i = -INITIAL_PAST_WEEKS; i < 4 + INITIAL_FUTURE_WEEKS; i++) {
+    loadedWeeks.push(addDays(todayMonday, i * 7));
+  }
+
+  await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
+  renderAllWeeks();
+  renderUpcomingImportant();
+
+  // Scroll pour amener la semaine en cours en haut de la zone visible
+  requestAnimationFrame(() => {
+    const scrollEl = document.getElementById("week-scroll");
+    const todayRow = scrollEl.querySelector(`[data-monday="${todayMonday.toISOString()}"]`);
+    if (todayRow) scrollEl.scrollTop = todayRow.offsetTop;
+    updateMonthLabel();
+  });
+
+  document.getElementById("week-scroll").addEventListener("scroll", throttle(onWeekScroll, 120));
 }
 
-async function loadEvents() {
-  const monday = getMonday(new Date());
-  const calendarEnd = addDays(monday, WEEKS_VISIBLE * 7);
-  const importantEnd = addDays(new Date(), IMPORTANT_WINDOW_DAYS);
-  const fetchEnd = calendarEnd > importantEnd ? calendarEnd : importantEnd;
-
+async function fetchEventsForRange(fromDate, toDate) {
   const { data, error } = await supabase
     .from("events")
     .select("*")
     .eq("household_id", currentHouseholdId)
-    .gte("start_at", monday.toISOString())
-    .lte("start_at", fetchEnd.toISOString())
-    .order("start_at", { ascending: true });
-
+    .gte("start_at", fromDate.toISOString())
+    .lt("start_at", toDate.toISOString());
   if (error) return console.error(error);
-  events = data;
-  renderWeekGrid(monday);
-  renderUpcomingImportant();
+  for (const e of data) eventsById.set(e.id, e);
 }
 
-function renderWeekGrid(monday) {
+async function mergeEventsForLoadedRange() {
+  if (loadedWeeks.length === 0) return;
+  await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
+}
+
+function eventsOnDay(day) {
+  return [...eventsById.values()].filter(
+    (e) => isSameDay(new Date(e.start_at), day) && !pendingDeleteIds.has(e.id)
+  );
+}
+
+function renderAllWeeks() {
   const grid = document.getElementById("week-grid");
   if (!grid) return;
   const today = new Date();
 
-  let html = "";
-  for (let w = 0; w < WEEKS_VISIBLE; w++) {
-    const weekStart = addDays(monday, w * 7);
-    html += `<div class="week-row">`;
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(weekStart, i);
-      const dayEvents = events.filter((e) => isSameDay(new Date(e.start_at), day) && !pendingDeleteIds.has(e.id));
-      const isToday = isSameDay(day, today);
-      html += `
-        <button class="day-cell ${isToday ? "is-today" : ""}" data-date="${day.toISOString()}">
-          <span class="day-number">${day.getDate()}</span>
-          ${dayEvents.length > 0 ? `<span class="day-dot">${dayEvents.some((e) => e.important) ? "⭐" : "•"}</span>` : ""}
-        </button>
-      `;
-    }
-    html += `</div>`;
-  }
-  grid.innerHTML = html;
+  grid.innerHTML = loadedWeeks
+    .map((weekStart) => {
+      let row = `<div class="week-row" data-monday="${weekStart.toISOString()}">`;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        const dayEvents = eventsOnDay(day);
+        const isToday = isSameDay(day, today);
+        row += `
+          <button class="day-cell ${isToday ? "is-today" : ""}" data-date="${day.toISOString()}">
+            <span class="day-number">${day.getDate()}</span>
+            ${dayEvents.length > 0 ? `<span class="day-dot">${dayEvents.some((e) => e.important) ? "⭐" : "•"}</span>` : ""}
+          </button>
+        `;
+      }
+      row += `</div>`;
+      return row;
+    })
+    .join("");
 
   grid.querySelectorAll(".day-cell").forEach((el) => {
-    el.addEventListener("click", () => openDay(new Date(el.dataset.date)));
+    el.addEventListener("click", () => {
+      eventReturnTo = "day";
+      openDay(new Date(el.dataset.date));
+    });
   });
+}
+
+async function onWeekScroll(e) {
+  const scrollEl = e.target;
+  updateMonthLabel();
+
+  if (isLoadingMore) return;
+
+  if (scrollEl.scrollTop < SCROLL_EDGE_THRESHOLD) {
+    isLoadingMore = true;
+    const firstWeek = loadedWeeks[0];
+    const newWeeks = [];
+    for (let i = LOAD_CHUNK_WEEKS; i >= 1; i--) newWeeks.push(addDays(firstWeek, -i * 7));
+    loadedWeeks = [...newWeeks, ...loadedWeeks];
+
+    const prevScrollHeight = scrollEl.scrollHeight;
+    await fetchEventsForRange(newWeeks[0], firstWeek);
+    renderAllWeeks();
+    scrollEl.scrollTop += scrollEl.scrollHeight - prevScrollHeight;
+    isLoadingMore = false;
+  } else if (scrollEl.scrollTop + scrollEl.clientHeight > scrollEl.scrollHeight - SCROLL_EDGE_THRESHOLD) {
+    isLoadingMore = true;
+    const lastWeek = loadedWeeks[loadedWeeks.length - 1];
+    const newWeeks = [];
+    for (let i = 1; i <= LOAD_CHUNK_WEEKS; i++) newWeeks.push(addDays(lastWeek, i * 7));
+    loadedWeeks = [...loadedWeeks, ...newWeeks];
+
+    await fetchEventsForRange(addDays(lastWeek, 7), addDays(newWeeks[newWeeks.length - 1], 7));
+    renderAllWeeks();
+    isLoadingMore = false;
+  }
+}
+
+function updateMonthLabel() {
+  const scrollEl = document.getElementById("week-scroll");
+  const label = document.getElementById("month-year-label");
+  if (!scrollEl || !label) return;
+
+  const rows = [...scrollEl.querySelectorAll(".week-row")];
+  const containerTop = scrollEl.getBoundingClientRect().top;
+  let current = rows[0];
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    if (rect.top - containerTop <= 30) {
+      current = row;
+    } else {
+      break;
+    }
+  }
+  if (!current) return;
+  const monday = new Date(current.dataset.monday);
+  const midWeek = addDays(monday, 3); // jeudi de la semaine = mois "dominant" (convention ISO)
+  label.textContent = capitalize(midWeek.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
 }
 
 function renderUpcomingImportant() {
   const el = document.getElementById("upcoming-list");
   if (!el) return;
   const now = new Date();
-  const important = events
-    .filter((e) => e.important && !pendingDeleteIds.has(e.id) && new Date(e.start_at) >= now)
+  const windowEnd = addDays(now, IMPORTANT_WINDOW_DAYS);
+  const important = [...eventsById.values()]
+    .filter((e) => e.important && !pendingDeleteIds.has(e.id) && new Date(e.start_at) >= now && new Date(e.start_at) <= windowEnd)
     .sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
 
   if (important.length === 0) {
@@ -164,7 +277,8 @@ function renderUpcomingImportant() {
 
   el.querySelectorAll(".event-item").forEach((row) => {
     row.addEventListener("click", () => {
-      const event = events.find((e) => e.id === row.dataset.id);
+      const event = eventsById.get(row.dataset.id);
+      eventReturnTo = "day";
       openDay(new Date(event.start_at), event);
     });
   });
@@ -187,14 +301,17 @@ async function openDay(day, focusEvent) {
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-overview" class="back-btn">‹ Calendrier</button>
-      <h2 class="list-detail-title">${label.charAt(0).toUpperCase() + label.slice(1)}</h2>
+      <h2 class="list-detail-title">${capitalize(label)}</h2>
       <button id="add-event-btn">+ Ajouter un événement</button>
       <div id="hours-grid" class="hours-grid"></div>
     </div>
   `;
 
   document.getElementById("back-to-overview").addEventListener("click", () => goBack());
-  document.getElementById("add-event-btn").addEventListener("click", () => openEventDetail(null, day));
+  document.getElementById("add-event-btn").addEventListener("click", () => {
+    eventReturnTo = "day";
+    openEventDetail(null, day);
+  });
 
   renderHoursGrid(day);
 
@@ -209,7 +326,7 @@ function renderHoursGrid(day) {
   const grid = document.getElementById("hours-grid");
   if (!grid) return;
 
-  const dayEvents = events.filter((e) => isSameDay(new Date(e.start_at), day) && !pendingDeleteIds.has(e.id));
+  const dayEvents = eventsOnDay(day);
 
   let html = "";
   for (let h = 0; h < 24; h++) {
@@ -235,7 +352,8 @@ function renderHoursGrid(day) {
 
   grid.querySelectorAll(".hour-event").forEach((el) => {
     el.addEventListener("click", () => {
-      const event = events.find((e) => e.id === el.dataset.id);
+      const event = eventsById.get(el.dataset.id);
+      eventReturnTo = "day";
       openEventDetail(event, day);
     });
   });
@@ -247,18 +365,29 @@ function renderHoursGrid(day) {
 function openEventDetail(event, day) {
   view = "event-detail";
   currentEvent = event;
+  const returnTo = eventReturnTo;
 
   pushView(() => {
-    view = "day";
-    renderHoursGrid(currentDay);
+    if (returnTo === "overview") {
+      view = "overview";
+      renderOverview();
+    } else {
+      view = "day";
+      renderHoursGrid(currentDay);
+    }
   });
 
   const startDate = event ? new Date(event.start_at) : new Date(day);
-  if (!event) startDate.setHours(9, 0, 0, 0);
+  if (!event) {
+    const now = new Date();
+    startDate.setHours(now.getHours(), 0, 0, 0);
+  }
+
+  const backLabel = returnTo === "overview" ? "‹ Calendrier" : `‹ ${day.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
 
   containerRef.innerHTML = `
     <div class="list-detail">
-      <button id="back-to-day" class="back-btn">‹ ${day.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</button>
+      <button id="back-to-previous" class="back-btn">${backLabel}</button>
       <form id="event-detail-form" class="recipe-form">
         <input id="ev-title" placeholder="Intitulé de l'événement" value="${event ? escapeHtml(event.title) : ""}" required />
         <input id="ev-date" type="date" value="${toDateInputValue(startDate)}" required />
@@ -271,12 +400,12 @@ function openEventDetail(event, day) {
     </div>
   `;
 
-  document.getElementById("back-to-day").addEventListener("click", () => goBack());
-  document.getElementById("event-detail-form").addEventListener("submit", handleSaveEvent);
+  document.getElementById("back-to-previous").addEventListener("click", () => goBack());
+  document.getElementById("event-detail-form").addEventListener("submit", (e) => handleSaveEvent(e, day));
   document.getElementById("delete-event-btn")?.addEventListener("click", () => handleDeleteEvent(event));
 }
 
-async function handleSaveEvent(e) {
+async function handleSaveEvent(e, day) {
   e.preventDefault();
   const title = document.getElementById("ev-title").value.trim();
   const dateVal = document.getElementById("ev-date").value;
@@ -298,7 +427,7 @@ async function handleSaveEvent(e) {
     });
   }
 
-  await loadEvents();
+  await mergeEventsForLoadedRange();
   goBack();
 }
 
@@ -308,14 +437,23 @@ function handleDeleteEvent(event) {
 
   showUndoToast({
     message: `Événement « ${event.title} » supprimé`,
-    onUndo: async () => {
+    onUndo: () => {
       pendingDeleteIds.delete(event.id);
-      await loadEvents();
+      refreshCurrentView();
     },
     onConfirm: async () => {
       pendingDeleteIds.delete(event.id);
       await supabase.from("events").delete().eq("id", event.id);
-      await loadEvents();
+      eventsById.delete(event.id);
     },
   });
+}
+
+function refreshCurrentView() {
+  if (view === "day" && currentDay) {
+    renderHoursGrid(currentDay);
+  } else if (view === "overview") {
+    renderAllWeeks();
+    renderUpcomingImportant();
+  }
 }
