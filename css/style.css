@@ -147,11 +147,22 @@ button.secondary {
   border: 1px solid var(--border); margin: 4px 0; font-family: inherit;
 }
 
+.calendar-top-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.calendar-top-row .home-btn { flex: 1; margin-bottom: 0; text-align: center; }
+
+.month-year-label {
+  font-size: 1.2rem; font-weight: 700; margin: 4px 0 8px; color: var(--text);
+}
+
 .week-headers {
   display: grid; grid-template-columns: repeat(7, 1fr); text-align: center;
   color: var(--text-muted); font-size: 0.75rem; margin-bottom: 6px;
 }
-.week-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.week-scroll {
+  height: 300px; overflow-y: auto; margin-bottom: 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.week-grid { display: flex; flex-direction: column; gap: 6px; }
 .week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .day-cell {
   aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
