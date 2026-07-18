@@ -11,12 +11,11 @@ const INITIAL_FUTURE_WEEKS = 10;
 const LOAD_CHUNK_WEEKS = 6;
 const IMPORTANT_WINDOW_DAYS = 60;
 const SCROLL_EDGE_THRESHOLD = 250;
+const MAX_BARS_PER_DAY = 3;
 
-// Teinte par mois (Jan → Déc) : cycle complet, ~30° d'écart entre mois
-// consécutifs, froid (bleu) en hiver, chaud (jaune/orange) en été.
 const MONTH_HUES = [225, 200, 165, 135, 100, 70, 45, 20, 355, 325, 290, 255];
 function monthBg(monthIndex) {
-  return `hsl(${MONTH_HUES[monthIndex]}, 48%, 91%)`;
+  return `hsl(${MONTH_HUES[monthIndex]}, 48%, 88%)`;
 }
 function monthText(monthIndex) {
   return `hsl(${MONTH_HUES[monthIndex]}, 55%, 38%)`;
@@ -30,6 +29,7 @@ let view = "overview"; // "overview" | "day" | "event-detail"
 let currentDay = null;
 let currentEvent = null;
 let eventReturnTo = "day";
+let reminderDraft = [];
 let containerRef = null;
 let currentHouseholdId = null;
 let currentUserId = null;
@@ -44,11 +44,11 @@ export async function mount(container, ctx) {
   loadedWeeks = [];
 
   await markTabSeen(currentUserId, "calendar");
-  await renderOverview();
+  await initOverviewFresh();
 
   unsubscribe = subscribeToTable("events", currentHouseholdId, async () => {
     if (view !== "overview") return;
-    await mergeEventsForLoadedRange();
+    await refreshData();
     renderAllWeeks();
     renderUpcomingImportant();
   });
@@ -100,7 +100,6 @@ function throttle(fn, wait) {
   };
 }
 
-// Un anniversaire revient chaque année : on ne compare que mois + jour.
 function eventOccursOnDay(event, day) {
   const start = new Date(event.start_at);
   if (event.is_birthday) {
@@ -109,8 +108,6 @@ function eventOccursOnDay(event, day) {
   return isSameDay(start, day);
 }
 
-// Prochaine occurrence d'un événement à partir de `from` (utile pour les
-// anniversaires récurrents dans la liste des événements importants à venir)
 function nextOccurrence(event, from) {
   const start = new Date(event.start_at);
   if (!event.is_birthday) return start;
@@ -120,11 +117,47 @@ function nextOccurrence(event, from) {
 }
 
 // ==========================================
+// Chargement des données
+// ==========================================
+async function fetchEventsForRange(fromDate, toDate) {
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("household_id", currentHouseholdId)
+    .gte("start_at", fromDate.toISOString())
+    .lt("start_at", toDate.toISOString());
+  if (error) return console.error(error);
+  for (const e of data) eventsById.set(e.id, e);
+}
+
+// Les anniversaires reviennent chaque année : impossible de les filtrer par
+// plage de dates (leur ligne garde l'année de création). On les charge tous,
+// séparément, indépendamment de la fenêtre de semaines affichée.
+async function fetchAllBirthdays() {
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("household_id", currentHouseholdId)
+    .eq("is_birthday", true);
+  if (error) return console.error(error);
+  for (const e of data) eventsById.set(e.id, e);
+}
+
+async function refreshData() {
+  if (loadedWeeks.length > 0) {
+    await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
+  }
+  await fetchAllBirthdays();
+}
+
+function eventsOnDay(day) {
+  return [...eventsById.values()].filter((e) => eventOccursOnDay(e, day) && !pendingDeleteIds.has(e.id));
+}
+
+// ==========================================
 // VUE 1 : calendrier défilant + événements importants à venir
 // ==========================================
-async function renderOverview() {
-  const todayMonday = getMonday(new Date());
-
+function renderOverviewShell() {
   containerRef.innerHTML = `
     <div class="tab-calendar">
       <div class="calendar-top-row">
@@ -150,6 +183,14 @@ async function renderOverview() {
     eventReturnTo = "overview";
     openEventDetail(null, new Date());
   });
+  document.getElementById("week-scroll").addEventListener("scroll", throttle(onWeekScroll, 120));
+}
+
+// Premier chargement de l'onglet : réinitialise tout et centre sur aujourd'hui
+async function initOverviewFresh() {
+  view = "overview";
+  const todayMonday = getMonday(new Date());
+  renderOverviewShell();
 
   loadedWeeks = [];
   for (let i = -INITIAL_PAST_WEEKS; i < 4 + INITIAL_FUTURE_WEEKS; i++) {
@@ -157,39 +198,34 @@ async function renderOverview() {
   }
 
   await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
+  await fetchAllBirthdays();
   renderAllWeeks();
   renderUpcomingImportant();
+  scrollToToday();
+}
 
+// Retour depuis une journée : réutilise les données déjà en mémoire et
+// restaure la position de scroll exacte, sans recharger ni recentrer.
+function restoreOverview(scrollTop) {
+  view = "overview";
+  renderOverviewShell();
+  renderAllWeeks();
+  renderUpcomingImportant();
+  const scrollEl = document.getElementById("week-scroll");
+  scrollEl.scrollTop = scrollTop;
+  updateMonthLabel();
+}
+
+function scrollToToday() {
   requestAnimationFrame(() => {
-    const scrollEl = document.getElementById("week-scroll");
-    const todayRow = scrollEl.querySelector(`[data-monday="${todayMonday.toISOString()}"]`);
-    if (todayRow) scrollEl.scrollTop = todayRow.offsetTop;
-    updateMonthLabel();
+    requestAnimationFrame(() => {
+      const scrollEl = document.getElementById("week-scroll");
+      const todayMonday = getMonday(new Date()).toISOString();
+      const todayRow = scrollEl.querySelector(`[data-monday="${todayMonday}"]`);
+      if (todayRow) todayRow.scrollIntoView({ block: "start" });
+      updateMonthLabel();
+    });
   });
-
-  document.getElementById("week-scroll").addEventListener("scroll", throttle(onWeekScroll, 120));
-}
-
-async function fetchEventsForRange(fromDate, toDate) {
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("household_id", currentHouseholdId)
-    .gte("start_at", fromDate.toISOString())
-    .lt("start_at", toDate.toISOString());
-  if (error) return console.error(error);
-  for (const e of data) eventsById.set(e.id, e);
-}
-
-async function mergeEventsForLoadedRange() {
-  if (loadedWeeks.length === 0) return;
-  await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
-}
-
-// Les anniversaires reviennent chaque année : on les cherche dans TOUT le
-// cache, pas seulement dans la fenêtre chargée pour ce jour précis.
-function eventsOnDay(day) {
-  return [...eventsById.values()].filter((e) => eventOccursOnDay(e, day) && !pendingDeleteIds.has(e.id));
 }
 
 function renderAllWeeks() {
@@ -204,12 +240,16 @@ function renderAllWeeks() {
         const day = addDays(weekStart, i);
         const dayEvents = eventsOnDay(day);
         const isToday = isSameDay(day, today);
-        const hasImportant = dayEvents.some((e) => e.important);
+        const bars = dayEvents
+          .slice(0, MAX_BARS_PER_DAY)
+          .map((e) => `<span class="day-event-bar ${e.important ? "is-important" : ""}"></span>`)
+          .join("");
+        const extra = dayEvents.length > MAX_BARS_PER_DAY ? `<span class="day-event-extra">+${dayEvents.length - MAX_BARS_PER_DAY}</span>` : "";
         row += `
           <div class="day-slot" style="background:${monthBg(day.getMonth())}">
             <button class="day-cell ${isToday ? "is-today" : ""}" data-date="${day.toISOString()}">
               <span class="day-number">${day.getDate()}</span>
-              ${dayEvents.length > 0 ? `<span class="day-event-bar ${hasImportant ? "is-important" : ""}"></span>` : ""}
+              <div class="day-event-bars">${bars}${extra}</div>
             </button>
           </div>
         `;
@@ -329,10 +369,10 @@ async function openDay(day, focusEvent) {
   view = "day";
   currentDay = day;
 
-  pushView(() => {
-    view = "overview";
-    renderOverview();
-  });
+  const scrollEl = document.getElementById("week-scroll");
+  const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+
+  pushView(() => restoreOverview(savedScrollTop));
 
   const label = day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -374,11 +414,7 @@ function renderHoursGrid(day) {
       <div class="all-day-section">
         <span class="all-day-label">Toute la journée</span>
         ${allDayEvents
-          .map(
-            (e) => `
-          <button class="hour-event all-day-event" data-id="${e.id}">🎂 ${escapeHtml(e.title)}</button>
-        `
-          )
+          .map((e) => `<button class="hour-event all-day-event" data-id="${e.id}">🎂 ${escapeHtml(e.title)}</button>`)
           .join("")}
       </div>
     `;
@@ -391,13 +427,7 @@ function renderHoursGrid(day) {
         <span class="hour-label">${String(h).padStart(2, "0")}h</span>
         <div class="hour-content">
           ${hourEvents
-            .map(
-              (e) => `
-            <button class="hour-event" data-id="${e.id}">
-              ${e.important ? "⭐ " : ""}${escapeHtml(e.title)}
-            </button>
-          `
-            )
+            .map((e) => `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}</button>`)
             .join("")}
         </div>
       </div>
@@ -420,12 +450,13 @@ function renderHoursGrid(day) {
 function openEventDetail(event, day) {
   view = "event-detail";
   currentEvent = event;
+  reminderDraft = event?.reminders ? event.reminders.map((r) => ({ ...r })) : [];
   const returnTo = eventReturnTo;
 
   pushView(() => {
     if (returnTo === "overview") {
-      view = "overview";
-      renderOverview();
+      const scrollEl = document.getElementById("week-scroll");
+      restoreOverview(scrollEl ? scrollEl.scrollTop : 0);
     } else {
       view = "day";
       renderHoursGrid(currentDay);
@@ -469,6 +500,10 @@ function openEventDetail(event, day) {
           <span>⭐ Important</span>
         </label>
 
+        <label class="field-label">Rappels</label>
+        <div id="reminders-list" class="reminders-list"></div>
+        <button type="button" id="add-reminder-btn" class="secondary">+ Ajouter un rappel</button>
+
         <button type="submit">Enregistrer</button>
       </form>
       ${event ? `<button type="button" id="delete-event-btn" class="danger-btn">Supprimer</button>` : ""}
@@ -486,9 +521,59 @@ function openEventDetail(event, day) {
   birthdayCheckbox.addEventListener("change", syncBirthdayUI);
   syncBirthdayUI();
 
+  renderReminders();
+  document.getElementById("add-reminder-btn").addEventListener("click", () => {
+    reminderDraft.push({ amount: 1, unit: "hours" });
+    renderReminders();
+  });
+
   document.getElementById("back-to-previous").addEventListener("click", () => goBack());
   document.getElementById("event-detail-form").addEventListener("submit", (e) => handleSaveEvent(e, day));
   document.getElementById("delete-event-btn")?.addEventListener("click", () => handleDeleteEvent(event));
+}
+
+function renderReminders() {
+  const el = document.getElementById("reminders-list");
+  if (!el) return;
+
+  if (reminderDraft.length === 0) {
+    el.innerHTML = `<p class="field-hint">Aucun rappel programmé.</p>`;
+  } else {
+    el.innerHTML = reminderDraft
+      .map(
+        (r, i) => `
+      <div class="reminder-row" data-index="${i}">
+        <input type="number" min="1" class="reminder-amount" value="${r.amount}" />
+        <select class="reminder-unit">
+          <option value="hours" ${r.unit === "hours" ? "selected" : ""}>heure(s) avant</option>
+          <option value="days" ${r.unit === "days" ? "selected" : ""}>jour(s) avant</option>
+        </select>
+        <button type="button" class="reminder-remove" data-index="${i}">✕</button>
+      </div>
+    `
+      )
+      .join("");
+  }
+
+  el.querySelectorAll(".reminder-amount").forEach((input) => {
+    input.addEventListener("change", (e) => {
+      const idx = +e.target.closest(".reminder-row").dataset.index;
+      reminderDraft[idx].amount = Math.max(1, parseInt(e.target.value) || 1);
+    });
+  });
+  el.querySelectorAll(".reminder-unit").forEach((select) => {
+    select.addEventListener("change", (e) => {
+      const idx = +e.target.closest(".reminder-row").dataset.index;
+      reminderDraft[idx].unit = e.target.value;
+    });
+  });
+  el.querySelectorAll(".reminder-remove").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = +e.target.dataset.index;
+      reminderDraft.splice(idx, 1);
+      renderReminders();
+    });
+  });
 }
 
 async function handleSaveEvent(e, day) {
@@ -501,7 +586,13 @@ async function handleSaveEvent(e, day) {
   if (!title || !dateVal || !timeVal) return;
 
   const startAt = new Date(`${dateVal}T${timeVal}`);
-  const payload = { title, start_at: startAt.toISOString(), is_birthday: isBirthday, important };
+  const payload = {
+    title,
+    start_at: startAt.toISOString(),
+    is_birthday: isBirthday,
+    important,
+    reminders: reminderDraft,
+  };
 
   if (currentEvent) {
     await supabase.from("events").update(payload).eq("id", currentEvent.id);
@@ -513,7 +604,7 @@ async function handleSaveEvent(e, day) {
     });
   }
 
-  await mergeEventsForLoadedRange();
+  await refreshData();
   goBack();
 }
 
