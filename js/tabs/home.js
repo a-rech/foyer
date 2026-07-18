@@ -5,7 +5,7 @@ const SECTIONS = [
   { tab: "shopping", label: "Listes", emoji: "🛒", color: "card-peach" },
   { tab: "recipes", label: "Recettes", emoji: "🍽️", color: "card-mint" },
   { tab: "calendar", label: "Calendrier", emoji: "📅", color: "card-sky" },
-  { tab: "notes", label: "Bac à sable", emoji: "📝", color: "card-yellow" },
+  { tab: "notes", label: "Notes", emoji: "📝", color: "card-yellow" },
   { tab: "preferences", label: "Réglages", emoji: "⚙️", color: "card-lavender" },
 ];
 
