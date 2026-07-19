@@ -1,13 +1,21 @@
 import { getUserPreferences, savePreferences, requestNotificationPermission } from "../notifications.js";
 import { signOut } from "../auth.js";
 import { goHome } from "../router.js";
+import { getMyProfile, updateDisplayName } from "../profiles.js";
 
 export async function mount(container, ctx) {
   const prefs = await getUserPreferences(ctx.userId);
+  const profile = await getMyProfile(ctx.userId);
 
   container.innerHTML = `
     <div class="tab-preferences">
       <button class="home-btn" id="home-btn-prefs">🏠 Accueil</button>
+
+      <h3>Profil</h3>
+      <label class="field-label" for="display-name">Votre nom (visible par le foyer)</label>
+      <input id="display-name" value="${profile?.display_name ?? ""}" />
+      <button id="save-name">Enregistrer le nom</button>
+
       <h3>Notifications</h3>
       <label>
         <input type="checkbox" id="notif-enabled" ${prefs.notifications_enabled ? "checked" : ""} />
@@ -30,6 +38,13 @@ export async function mount(container, ctx) {
   `;
 
   document.getElementById("home-btn-prefs").addEventListener("click", () => goHome());
+
+  document.getElementById("save-name").addEventListener("click", async () => {
+    const name = document.getElementById("display-name").value.trim();
+    if (!name) return;
+    await updateDisplayName(ctx.userId, name);
+    alert("Nom enregistré.");
+  });
 
   document.getElementById("save-prefs").addEventListener("click", async () => {
     await savePreferences(ctx.userId, {
