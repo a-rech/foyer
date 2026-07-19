@@ -175,9 +175,7 @@ async function openPicker(dateStr, slotKey) {
     renderWeekView();
   });
 
-  if (recipesFlat.length === 0) {
-    recipesFlat = await getAllRecipesFlat(currentHouseholdId);
-  }
+  recipesFlat = await getAllRecipesFlat(currentHouseholdId);
 
   const slot = MEAL_SLOTS.find((s) => s.key === slotKey);
   const day = new Date(dateStr);
@@ -247,6 +245,7 @@ async function handleSetCustom(e) {
     customTitle: title,
     userId: currentUserId,
   });
+  await loadWeek();
   goBack();
 }
 
@@ -259,11 +258,13 @@ async function handleSetRecipe(recipeId) {
     customTitle: null,
     userId: currentUserId,
   });
+  await loadWeek();
   goBack();
 }
 
 async function handleClearSlot(existing) {
   if (!existing) return;
   await clearMealEntry(existing.id);
+  await loadWeek();
   goBack();
 }

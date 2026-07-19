@@ -1,21 +1,24 @@
 import { enterTab } from "../router.js";
 import { setBadgeVisible } from "../badges.js";
+import { getMyProfile } from "../profiles.js";
 
 const SECTIONS = [
   { tab: "shopping", label: "Listes", emoji: "🛒", color: "card-peach" },
+  { tab: "notes", label: "Notes", emoji: "📝", color: "card-yellow" },
   { tab: "recipes", label: "Recettes", emoji: "🍽️", color: "card-mint" },
   { tab: "meals", label: "Repas", emoji: "🍲", color: "card-teal" },
   { tab: "calendar", label: "Calendrier", emoji: "📅", color: "card-sky" },
-  { tab: "notes", label: "Notes", emoji: "📝", color: "card-yellow" },
   { tab: "tasks", label: "Tâches", emoji: "🧹", color: "card-rose" },
   { tab: "preferences", label: "Réglages", emoji: "⚙️", color: "card-lavender" },
 ];
 
 export async function mount(container, ctx) {
+  const profile = await getMyProfile(ctx.userId);
+
   container.innerHTML = `
     <div class="home-screen">
-      <p class="home-greeting">${greeting()}</p>
       <h1 class="home-household-name">${ctx.household?.name ?? "Votre foyer"}</h1>
+      <p class="home-greeting">${greeting(profile?.display_name)}</p>
 
       <div class="hero-grid">
         ${SECTIONS.map(
@@ -41,9 +44,10 @@ export async function mount(container, ctx) {
 
 export function unmount() {}
 
-function greeting() {
+function greeting(name) {
+  const who = name ? ` ${name}` : "";
   const hour = new Date().getHours();
-  if (hour < 12) return "Bonjour ☀️";
-  if (hour < 18) return "Bon après-midi 🌤️";
-  return "Bonsoir 🌙";
+  if (hour < 12) return `Bonjour${who} ☀️`;
+  if (hour < 18) return `Bon après-midi${who} 🌤️`;
+  return `Bonsoir${who} 🌙`;
 }

@@ -1,8 +1,9 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable, writeOrQueue } from "../sync.js";
 import { markTabSeen } from "../badges.js";
-import { getLists, createList, deleteList, getItemsForList } from "../lists.js";
+import { getLists, createList, deleteList, renameList, getItemsForList } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
+import { escapeHtml } from "../utils/format.js";
 import { pushView, goBack, goHome } from "../router.js";
 
 let unsubscribeLists = null;
@@ -146,7 +147,7 @@ async function openList(list) {
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-lists" class="back-btn">‹ Toutes les listes</button>
-      <h2 class="list-detail-title">${list.name}</h2>
+      <div class="detail-title-row" id="detail-title-row"></div>
       <form id="add-item-form" class="add-form">
         <input id="item-name" placeholder="Ajouter un article…" required />
         <input id="item-quantity" placeholder="Quantité…" />
@@ -156,6 +157,7 @@ async function openList(list) {
     </div>
   `;
 
+  renderDetailTitleRow(list);
   document.getElementById("back-to-lists").addEventListener("click", () => goBack());
   document.getElementById("add-item-form").addEventListener("submit", handleAddItem);
 
@@ -163,6 +165,61 @@ async function openList(list) {
 
   unsubscribeItems = subscribeToTable("shopping_items", currentHouseholdId, async () => {
     if (view === "detail" && currentList?.id === list.id) await loadItems();
+  });
+}
+
+function renderDetailTitleRow(list) {
+  const row = document.getElementById("detail-title-row");
+  if (!row) return;
+  row.innerHTML = `
+    <h2 class="list-detail-title">${escapeHtml(list.name)}</h2>
+    <div class="detail-title-actions">
+      <button id="rename-list-btn" class="icon-btn" aria-label="Renommer la liste">✎</button>
+      <button id="delete-list-detail-btn" class="icon-btn" aria-label="Supprimer la liste">🗑️</button>
+    </div>
+  `;
+  document.getElementById("rename-list-btn").addEventListener("click", () => startRenameList(list));
+  document.getElementById("delete-list-detail-btn").addEventListener("click", () => handleDeleteListFromDetail(list));
+}
+
+function startRenameList(list) {
+  const row = document.getElementById("detail-title-row");
+  if (!row) return;
+  row.innerHTML = `
+    <form class="inline-rename-form">
+      <input type="text" value="${escapeHtml(list.name)}" required />
+      <button type="submit">OK</button>
+    </form>
+  `;
+  const input = row.querySelector("input");
+  input.focus();
+  row.querySelector("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = input.value.trim();
+    if (!newName) return;
+    await renameList(list.id, newName);
+    list.name = newName;
+    const cached = lists.find((l) => l.id === list.id);
+    if (cached) cached.name = newName;
+    renderDetailTitleRow(list);
+  });
+}
+
+function handleDeleteListFromDetail(list) {
+  pendingDeleteIds.add(list.id);
+  goBack();
+
+  showUndoToast({
+    message: `Liste « ${list.name} » supprimée`,
+    onUndo: () => {
+      pendingDeleteIds.delete(list.id);
+      renderLists();
+    },
+    onConfirm: async () => {
+      pendingDeleteIds.delete(list.id);
+      await deleteList(list.id);
+      await loadLists();
+    },
   });
 }
 
