@@ -21,6 +21,8 @@
   --card-yellow-text: #9A7415;
   --card-lavender: #E3D9F5;
   --card-lavender-text: #6B4FA0;
+  --card-rose: #F7D6DE;
+  --card-rose-text: #B14C6B;
 
   --danger: #E27D6A;
   --danger-bg: #FBE2DD;
@@ -116,7 +118,8 @@ button.secondary {
 .card-mint { background: var(--card-mint); color: var(--card-mint-text); }
 .card-sky { background: var(--card-sky); color: var(--card-sky-text); }
 .card-yellow { background: var(--card-yellow); color: var(--card-yellow-text); }
-.card-lavender { background: var(--card-lavender); color: var(--card-lavender-text); grid-column: span 2; flex-direction: row; justify-content: center; }
+.card-lavender { background: var(--card-lavender); color: var(--card-lavender-text); }
+.card-rose { background: var(--card-rose); color: var(--card-rose-text); }
 
 #tab-content { padding: 16px 16px 32px; }
 
@@ -275,6 +278,16 @@ button.secondary {
 .danger-btn { background: var(--danger-bg); color: var(--danger); border: none; }
 .danger-btn:hover { filter: brightness(0.96); }
 #delete-event-btn { display: table; margin: 28px auto 0; padding: 12px 28px; }
+
+.task-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+.task-row input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--primary); margin: 0; }
+.task-row-info { flex: 1; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.task-row-title { font-weight: 600; }
+.task-row-meta { font-size: 0.8rem; color: var(--text-muted); }
 
 .empty-state { color: var(--text-muted); text-align: center; padding: 32px 0; }
 
