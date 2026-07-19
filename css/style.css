@@ -23,6 +23,8 @@
   --card-lavender-text: #6B4FA0;
   --card-rose: #F7D6DE;
   --card-rose-text: #B14C6B;
+  --card-teal: #C9EFE8;
+  --card-teal-text: #1F8073;
 
   --danger: #E27D6A;
   --danger-bg: #FBE2DD;
@@ -120,6 +122,8 @@ button.secondary {
 .card-yellow { background: var(--card-yellow); color: var(--card-yellow-text); }
 .card-lavender { background: var(--card-lavender); color: var(--card-lavender-text); }
 .card-rose { background: var(--card-rose); color: var(--card-rose-text); }
+.card-teal { background: var(--card-teal); color: var(--card-teal-text); }
+.hero-grid > *:nth-child(7):last-child { grid-column: span 2; flex-direction: row; justify-content: center; }
 
 #tab-content { padding: 16px 16px 32px; }
 
@@ -290,6 +294,25 @@ button.secondary {
 .task-row-meta { font-size: 0.8rem; color: var(--text-muted); }
 .task-row-due { font-size: 0.78rem; font-weight: 600; color: var(--card-mint-text); margin-top: 2px; }
 .task-row-due.is-overdue { color: var(--danger); }
+
+.week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 8px; }
+.week-nav button { width: auto; padding: 8px 12px; font-size: 0.85rem; margin: 0; }
+.week-range-label { font-weight: 700; font-size: 0.95rem; }
+
+.meals-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.meal-day-row { background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px; box-shadow: var(--shadow); }
+.meal-day-label { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
+.meal-day-label span { color: var(--text-muted); font-weight: 400; }
+.meal-slots { display: flex; gap: 8px; }
+.meal-slot {
+  flex: 1; text-align: left; background: var(--bg); border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.meal-slot.is-filled { background: var(--card-teal); color: var(--card-teal-text); border: none; }
+.meal-slot-label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; }
+.meal-slot-content { font-size: 0.88rem; font-weight: 600; }
+#generate-list-btn { margin-top: 4px; }
 
 .empty-state { color: var(--text-muted); text-align: center; padding: 32px 0; }
 
