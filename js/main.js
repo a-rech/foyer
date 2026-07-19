@@ -12,6 +12,7 @@ import * as recipesTab from "./tabs/recipes.js";
 import * as calendarTab from "./tabs/calendar.js";
 import * as notesTab from "./tabs/notes.js";
 import * as tasksTab from "./tabs/tasks.js";
+import * as mealsTab from "./tabs/meals.js";
 import * as preferencesTab from "./tabs/preferences.js";
 
 const appEl = document.getElementById("app");
@@ -122,6 +123,7 @@ function renderAppShell(user, household) {
   registerTab("calendar", { mount: (c) => calendarTab.mount(c, ctx), unmount: calendarTab.unmount });
   registerTab("notes", { mount: (c) => notesTab.mount(c, ctx), unmount: notesTab.unmount });
   registerTab("tasks", { mount: (c) => tasksTab.mount(c, ctx), unmount: tasksTab.unmount });
+  registerTab("meals", { mount: (c) => mealsTab.mount(c, ctx), unmount: mealsTab.unmount });
   registerTab("preferences", { mount: (c) => preferencesTab.mount(c, ctx), unmount: preferencesTab.unmount });
 
   initRouter("home");
@@ -131,7 +133,14 @@ function renderAppShell(user, household) {
 // Écoute en tâche de fond les tables des onglets non ouverts pour afficher un badge
 async function watchBadgesInBackground(ctx) {
   const lastSeen = await getLastSeenMap(ctx.userId);
-  const watchedTables = { shopping_items: "shopping", recipes: "recipes", events: "calendar", notes: "notes", household_tasks: "tasks" };
+  const watchedTables = {
+    shopping_items: "shopping",
+    recipes: "recipes",
+    events: "calendar",
+    notes: "notes",
+    household_tasks: "tasks",
+    meal_plan_entries: "meals",
+  };
 
   for (const [table, tabName] of Object.entries(watchedTables)) {
     subscribeToTable(table, ctx.householdId, (payload) => {
