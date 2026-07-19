@@ -99,9 +99,9 @@ button.secondary {
 .confirm-household-name { font-size: 1.8rem; margin-bottom: 32px; }
 
 /* Page d'accueil */
-.home-screen { padding: 28px 20px 12px; }
-.home-greeting { color: var(--text-muted); margin: 0 0 2px; font-size: 0.95rem; }
-.home-household-name { font-size: 1.7rem; margin: 0 0 24px; }
+.home-screen { padding: 28px 20px 12px; text-align: center; }
+.home-household-name { font-size: 1.7rem; margin: 0 0 4px; }
+.home-greeting { color: var(--text-muted); margin: 0 0 24px; font-size: 0.95rem; }
 
 .hero-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
@@ -334,6 +334,13 @@ button.secondary {
 .inline-rename-form input { flex: 1; width: auto; margin: 0; }
 .inline-rename-form button { width: auto; padding: 8px 14px; margin: 0; }
 .list-detail-title { margin: 4px 0 16px; }
+.detail-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.detail-title-row .list-detail-title { margin: 0; flex: 1; }
+.detail-title-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.icon-btn {
+  width: auto; background: none; border: none; font-size: 1.1rem;
+  cursor: pointer; padding: 4px 8px; color: var(--text-muted);
+}
 #new-recipe-btn { width: auto; margin-bottom: 14px; padding: 10px 16px; }
 
 .undo-toast {
