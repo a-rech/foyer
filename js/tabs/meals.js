@@ -142,7 +142,7 @@ function renderMealsGrid() {
 }
 
 function slotButtonHtml(dateStr, slot) {
-  const entry = entries.get(entryKey(dateStr, slot));
+  const entry = entries.get(entryKey(dateStr, slot.key));
   const title = entry ? entry.recipes?.title ?? entry.custom_title : null;
   return `
     <button class="meal-slot ${entry ? "is-filled" : ""}" data-date="${dateStr}" data-slot="${slot.key}">
