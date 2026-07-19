@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
-import { goHome, pushView, goBack } from "../router.js";
+import { goHome, pushView, goBack, popViews } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 
@@ -30,6 +30,8 @@ let currentDay = null;
 let currentEvent = null;
 let eventReturnTo = "day";
 let reminderDraft = [];
+let depthSinceOverview = 0;
+let overviewScrollTop = 0;
 let containerRef = null;
 let currentHouseholdId = null;
 let currentUserId = null;
@@ -154,6 +156,16 @@ function eventsOnDay(day) {
   return [...eventsById.values()].filter((e) => eventOccursOnDay(e, day) && !pendingDeleteIds.has(e.id));
 }
 
+// Capture la position de scroll uniquement au moment où on quitte réellement
+// la vue d'ensemble (pas à chaque sous-navigation ultérieure)
+function captureOverviewExitPoint() {
+  if (depthSinceOverview === 0) {
+    const scrollEl = document.getElementById("week-scroll");
+    overviewScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+  }
+  depthSinceOverview++;
+}
+
 // ==========================================
 // VUE 1 : calendrier défilant + événements importants à venir
 // ==========================================
@@ -189,6 +201,7 @@ function renderOverviewShell() {
 // Premier chargement de l'onglet : réinitialise tout et centre sur aujourd'hui
 async function initOverviewFresh() {
   view = "overview";
+  depthSinceOverview = 0;
   const todayMonday = getMonday(new Date());
   renderOverviewShell();
 
@@ -208,12 +221,42 @@ async function initOverviewFresh() {
 // restaure la position de scroll exacte, sans recharger ni recentrer.
 function restoreOverview(scrollTop) {
   view = "overview";
+  depthSinceOverview = 0;
   renderOverviewShell();
   renderAllWeeks();
   renderUpcomingImportant();
   const scrollEl = document.getElementById("week-scroll");
   scrollEl.scrollTop = scrollTop;
   updateMonthLabel();
+}
+
+// Après enregistrement d'un événement : va à l'accueil du calendrier centré
+// sur la semaine de cet événement (recharge la fenêtre autour de cette date,
+// que la semaine ait déjà été chargée ou non).
+async function goToOverviewAtDate(targetDate) {
+  view = "overview";
+  depthSinceOverview = 0;
+  const targetMonday = getMonday(targetDate);
+  renderOverviewShell();
+
+  loadedWeeks = [];
+  for (let i = -INITIAL_PAST_WEEKS; i < 4 + INITIAL_FUTURE_WEEKS; i++) {
+    loadedWeeks.push(addDays(targetMonday, i * 7));
+  }
+
+  await fetchEventsForRange(loadedWeeks[0], addDays(loadedWeeks[loadedWeeks.length - 1], 7));
+  await fetchAllBirthdays();
+  renderAllWeeks();
+  renderUpcomingImportant();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const scrollEl = document.getElementById("week-scroll");
+      const row = scrollEl.querySelector(`[data-monday="${targetMonday.toISOString()}"]`);
+      if (row) row.scrollIntoView({ block: "start" });
+      updateMonthLabel();
+    });
+  });
 }
 
 function scrollToToday() {
@@ -369,10 +412,9 @@ async function openDay(day, focusEvent) {
   view = "day";
   currentDay = day;
 
-  const scrollEl = document.getElementById("week-scroll");
-  const savedScrollTop = scrollEl ? scrollEl.scrollTop : 0;
-
-  pushView(() => restoreOverview(savedScrollTop));
+  captureOverviewExitPoint();
+  const scrollTopAtEntry = overviewScrollTop;
+  pushView(() => restoreOverview(scrollTopAtEntry));
 
   const label = day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -453,10 +495,11 @@ function openEventDetail(event, day) {
   reminderDraft = event?.reminders ? event.reminders.map((r) => ({ ...r })) : [];
   const returnTo = eventReturnTo;
 
+  captureOverviewExitPoint();
+  const scrollTopAtEntry = overviewScrollTop;
   pushView(() => {
     if (returnTo === "overview") {
-      const scrollEl = document.getElementById("week-scroll");
-      restoreOverview(scrollEl ? scrollEl.scrollTop : 0);
+      restoreOverview(scrollTopAtEntry);
     } else {
       view = "day";
       renderHoursGrid(currentDay);
@@ -604,13 +647,21 @@ async function handleSaveEvent(e, day) {
     });
   }
 
-  await refreshData();
-  goBack();
+  // Pour un anniversaire, on centre sur sa prochaine occurrence plutôt que
+  // sur l'année saisie (qui peut être ancienne, ex. année de naissance)
+  const centerDate = isBirthday ? nextOccurrence({ start_at: startAt.toISOString(), is_birthday: true }, new Date()) : startAt;
+
+  popViews(depthSinceOverview);
+  await goToOverviewAtDate(centerDate);
 }
 
 function handleDeleteEvent(event) {
   pendingDeleteIds.add(event.id);
-  goBack();
+
+  const depth = depthSinceOverview;
+  const scrollTop = overviewScrollTop;
+  popViews(depth);
+  restoreOverview(scrollTop);
 
   showUndoToast({
     message: `Événement « ${event.title} » supprimé`,
