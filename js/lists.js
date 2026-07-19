@@ -20,6 +20,11 @@ export async function createList(householdId, name, userId) {
   return data;
 }
 
+export async function renameList(id, name) {
+  const { error } = await supabase.from("shopping_lists").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+
 // Suppression réelle en base (appelée seulement après expiration du délai d'annulation)
 export async function deleteList(id) {
   const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
