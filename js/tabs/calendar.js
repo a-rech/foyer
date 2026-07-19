@@ -4,6 +4,7 @@ import { markTabSeen } from "../badges.js";
 import { goHome, pushView, goBack, popViews } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
+import { createTask, updateTask as updateLinkedTask, deleteTask as deleteLinkedTask } from "../tasks.js";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const INITIAL_PAST_WEEKS = 4;
@@ -543,6 +544,11 @@ function openEventDetail(event, day) {
           <span>⭐ Important</span>
         </label>
 
+        <label class="checkbox-row">
+          <input id="ev-add-task" type="checkbox" ${event?.linked_task_id ? "checked" : ""} />
+          <span>🗒️ Ajouter aux tâches</span>
+        </label>
+
         <label class="field-label">Rappels</label>
         <div id="reminders-list" class="reminders-list"></div>
         <button type="button" id="add-reminder-btn" class="secondary">+ Ajouter un rappel</button>
@@ -625,6 +631,7 @@ async function handleSaveEvent(e, day) {
   const dateVal = document.getElementById("ev-date").value;
   const isBirthday = document.getElementById("ev-birthday").checked;
   const important = document.getElementById("ev-important").checked;
+  const addToTasks = document.getElementById("ev-add-task").checked;
   const timeVal = isBirthday ? "00:00" : document.getElementById("ev-time").value;
   if (!title || !dateVal || !timeVal) return;
 
@@ -637,15 +644,20 @@ async function handleSaveEvent(e, day) {
     reminders: reminderDraft,
   };
 
+  let eventRow;
   if (currentEvent) {
-    await supabase.from("events").update(payload).eq("id", currentEvent.id);
+    const { data } = await supabase.from("events").update(payload).eq("id", currentEvent.id).select().single();
+    eventRow = data;
   } else {
-    await supabase.from("events").insert({
-      ...payload,
-      household_id: currentHouseholdId,
-      created_by: currentUserId,
-    });
+    const { data } = await supabase
+      .from("events")
+      .insert({ ...payload, household_id: currentHouseholdId, created_by: currentUserId })
+      .select()
+      .single();
+    eventRow = data;
   }
+
+  if (eventRow) await syncLinkedTask(eventRow, addToTasks, dateVal);
 
   // Pour un anniversaire, on centre sur sa prochaine occurrence plutôt que
   // sur l'année saisie (qui peut être ancienne, ex. année de naissance)
@@ -653,6 +665,29 @@ async function handleSaveEvent(e, day) {
 
   popViews(depthSinceOverview);
   await goToOverviewAtDate(centerDate);
+}
+
+// Crée, met à jour ou supprime la tâche liée à un événement selon l'état
+// de la case "Ajouter aux tâches"
+async function syncLinkedTask(eventRow, shouldLink, dueDateVal) {
+  if (shouldLink) {
+    if (eventRow.linked_task_id) {
+      await updateLinkedTask(eventRow.linked_task_id, { title: eventRow.title, due_date: dueDateVal });
+    } else {
+      const newTask = await createTask({
+        household_id: currentHouseholdId,
+        title: eventRow.title,
+        recurrence: "none",
+        recurrence_interval: 1,
+        due_date: dueDateVal,
+        created_by: currentUserId,
+      });
+      await supabase.from("events").update({ linked_task_id: newTask.id }).eq("id", eventRow.id);
+    }
+  } else if (eventRow.linked_task_id) {
+    await deleteLinkedTask(eventRow.linked_task_id);
+    await supabase.from("events").update({ linked_task_id: null }).eq("id", eventRow.id);
+  }
 }
 
 function handleDeleteEvent(event) {
@@ -672,6 +707,7 @@ function handleDeleteEvent(event) {
     onConfirm: async () => {
       pendingDeleteIds.delete(event.id);
       await supabase.from("events").delete().eq("id", event.id);
+      if (event.linked_task_id) await deleteLinkedTask(event.linked_task_id);
       eventsById.delete(event.id);
     },
   });

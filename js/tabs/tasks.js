@@ -15,6 +15,8 @@ import {
   dueLabel,
   recurrenceLabel,
   nextWeekday,
+  addDays,
+  formatDayLabel,
   WEEKDAY_LABELS,
 } from "../tasks.js";
 
@@ -182,6 +184,18 @@ function openTaskDetail(task) {
     (label, i) => `<option value="${i}" ${task.recurrence_weekday === i ? "selected" : ""}>${label}</option>`
   ).join("");
 
+  // 14 prochains jours pour le menu déroulant "Prévue pour" (Aujourd'hui, Demain, puis dates)
+  let dueDateOptions = Array.from({ length: 14 }, (_, i) => {
+    const d = addDays(new Date(), i);
+    return { value: toDateInputValue(d), label: formatDayLabel(d, i) };
+  });
+  if (task.due_date && !dueDateOptions.some((o) => o.value === task.due_date)) {
+    dueDateOptions = [{ value: task.due_date, label: formatDayLabel(new Date(task.due_date), 99) }, ...dueDateOptions];
+  }
+  const dueDateOptionsHtml = dueDateOptions
+    .map((o) => `<option value="${o.value}" ${task.due_date === o.value ? "selected" : ""}>${o.label}</option>`)
+    .join("");
+
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-tasks" class="back-btn">‹ Tâches</button>
@@ -203,6 +217,11 @@ function openTaskDetail(task) {
           <option value="monthly" ${task.recurrence === "monthly" ? "selected" : ""}>Tous les X mois</option>
         </select>
 
+        <div id="due-date-field-wrap">
+          <label class="field-label" for="t-due-date">Prévue pour</label>
+          <select id="t-due-date">${dueDateOptionsHtml}</select>
+        </div>
+
         <div id="interval-field-wrap">
           <label class="field-label" id="interval-label" for="t-interval">Intervalle</label>
           <input id="t-interval" type="number" min="1" value="${task.recurrence_interval || 1}" />
@@ -220,6 +239,7 @@ function openTaskDetail(task) {
   `;
 
   const recurrenceSelect = document.getElementById("t-recurrence");
+  const dueDateWrap = document.getElementById("due-date-field-wrap");
   const intervalWrap = document.getElementById("interval-field-wrap");
   const intervalLabel = document.getElementById("interval-label");
   const weekdayWrap = document.getElementById("weekday-field-wrap");
@@ -227,6 +247,7 @@ function openTaskDetail(task) {
 
   const syncRecurrenceUI = () => {
     const type = recurrenceSelect.value;
+    dueDateWrap.style.display = type === "none" ? "block" : "none";
     intervalWrap.style.display = type === "none" ? "none" : "block";
     weekdayWrap.style.display = type === "weekly" ? "block" : "none";
     if (INTERVAL_LABELS[type]) intervalLabel.textContent = INTERVAL_LABELS[type];
@@ -249,7 +270,11 @@ async function handleSaveTask(e) {
 
   const values = { title, assigned_to: assignee, recurrence, recurrence_interval: recurrence === "none" ? 1 : interval };
 
-  if (recurrence === "weekly") {
+  if (recurrence === "none") {
+    values.due_date = document.getElementById("t-due-date").value || null;
+    values.recurrence_weekday = null;
+    values.recurrence_anchor = null;
+  } else if (recurrence === "weekly") {
     const weekday = parseInt(document.getElementById("t-weekday").value);
     // On ne recalcule l'ancre (point de départ du cycle) que si le jour ou le
     // type de récurrence a changé, pour ne pas décaler le rythme "1 semaine
@@ -259,9 +284,11 @@ async function handleSaveTask(e) {
     values.recurrence_anchor = weekdayChanged || !currentTask?.recurrence_anchor
       ? toDateInputValue(nextWeekday(new Date(), weekday))
       : currentTask.recurrence_anchor;
+    values.due_date = null;
   } else {
     values.recurrence_weekday = null;
     values.recurrence_anchor = null;
+    values.due_date = null;
   }
 
   await updateTask(currentTask.id, values);
