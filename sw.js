@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 19;
+const CACHE_VERSION = 20;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -12,6 +12,7 @@ const APP_SHELL = [
   "js/household.js",
   "js/profiles.js",
   "js/tasks.js",
+  "js/meals.js",
   "js/sync.js",
   "js/lists.js",
   "js/categories.js",
@@ -27,6 +28,7 @@ const APP_SHELL = [
   "js/tabs/calendar.js",
   "js/tabs/notes.js",
   "js/tabs/tasks.js",
+  "js/tabs/meals.js",
   "js/tabs/preferences.js",
 ];
 
