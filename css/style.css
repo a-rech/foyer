@@ -164,21 +164,21 @@ button.secondary {
   height: 440px; overflow-y: auto; margin-bottom: 16px;
   -webkit-overflow-scrolling: touch;
 }
-.week-grid { display: flex; flex-direction: column; gap: 8px; }
-.week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-.day-slot { border-radius: 0; padding: 6px; transition: background-color 0.2s; }
+.week-grid { display: flex; flex-direction: column; gap: 5px; }
+.week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.day-slot { border-radius: 0; padding: 4px; transition: background-color 0.2s; }
 .day-cell {
-  width: 100%; aspect-ratio: 1 / 2; position: relative;
+  width: 100%; aspect-ratio: 1 / 2; position: relative; overflow: hidden;
   display: flex; flex-direction: column; align-items: center;
-  padding-top: 8px; gap: 6px; background: var(--surface); border: none; border-radius: 9px;
+  padding-top: 8px; gap: 5px; background: var(--surface); border: none; border-radius: 9px;
   box-shadow: var(--shadow); cursor: pointer; font-family: inherit;
 }
 .day-cell.is-today { background: var(--card-sky); }
-.day-number { font-weight: 700; font-size: 1.05rem; }
-.day-event-bars { display: flex; flex-direction: column; gap: 4px; width: 68%; align-items: center; }
-.day-event-bar { height: 5px; width: 100%; border-radius: 2px; background: var(--primary); }
+.day-number { font-weight: 700; font-size: 1rem; line-height: 1; }
+.day-event-bars { display: flex; flex-direction: column; gap: 3px; width: 68%; align-items: center; }
+.day-event-bar { height: 4px; width: 100%; border-radius: 2px; background: var(--primary); }
 .day-event-bar.is-important { background: #D9A32B; }
-.day-event-extra { font-size: 0.62rem; color: var(--text-muted); }
+.day-event-extra { font-size: 0.6rem; color: var(--text-muted); }
 
 .upcoming-title { font-size: 0.9rem; margin: 4px 0 8px; color: var(--text-muted); }
 .upcoming-list { max-height: 170px; overflow-y: auto; }
@@ -274,6 +274,7 @@ button.secondary {
 .note-detail-actions button { width: auto; flex: 1; }
 .danger-btn { background: var(--danger-bg); color: var(--danger); border: none; }
 .danger-btn:hover { filter: brightness(0.96); }
+#delete-event-btn { display: table; margin: 28px auto 0; padding: 12px 28px; }
 
 .empty-state { color: var(--text-muted); text-align: center; padding: 32px 0; }
 
