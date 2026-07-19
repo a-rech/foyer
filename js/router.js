@@ -50,12 +50,32 @@ export function pushView(restorePrevious) {
   history.pushState({ depth: backActions.length }, "");
 }
 
+let suppressNextPopstate = 0;
+
 // Retour en arrière logique (bouton "‹" ou bouton retour matériel du téléphone)
 export function goBack() {
   history.back();
 }
 
+// Saute directement `count` niveaux en arrière sans redessiner les écrans
+// intermédiaires (utile après une action comme "Enregistrer" ou "Supprimer"
+// qui doit ramener directement à un écran plus haut dans la pile). L'appelant
+// est responsable d'afficher lui-même l'écran final.
+export function popViews(count) {
+  for (let i = 0; i < count && backActions.length > 0; i++) {
+    backActions.pop();
+  }
+  if (count > 0) {
+    suppressNextPopstate = 1;
+    history.go(-count);
+  }
+}
+
 window.addEventListener("popstate", () => {
+  if (suppressNextPopstate > 0) {
+    suppressNextPopstate--;
+    return;
+  }
   const restore = backActions.pop();
   if (restore) restore();
   // Pile vide : on est à l'accueil, le comportement par défaut du navigateur
