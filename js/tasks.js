@@ -7,10 +7,21 @@ function startOfDay(date) {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-function addDays(date, n) {
+export function addDays(date, n) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
+}
+
+// Libellé d'un jour pour le menu déroulant : "Aujourd'hui", "Demain", puis
+// "mercredi 22 juillet" au-delà
+export function formatDayLabel(date, index) {
+  if (index === 0) return "Aujourd'hui";
+  if (index === 1) return "Demain";
+  const weekday = date.toLocaleDateString("fr-FR", { weekday: "long" });
+  const day = date.getDate();
+  const month = date.toLocaleDateString("fr-FR", { month: "long" });
+  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day} ${month}`;
 }
 
 // Prochaine occurrence du jour de semaine `weekday` (0-6) à partir de `from` inclus
@@ -23,7 +34,8 @@ export function nextWeekday(from, weekday) {
 // Calcule la prochaine date d'échéance d'une tâche selon sa récurrence
 export function computeNextDue(task) {
   if (task.recurrence === "none") {
-    return task.last_completed_at ? null : startOfDay(task.created_at);
+    if (task.last_completed_at) return null;
+    return task.due_date ? startOfDay(task.due_date) : startOfDay(task.created_at);
   }
 
   if (task.recurrence === "daily") {
@@ -106,8 +118,9 @@ export async function getTasks(householdId) {
 }
 
 export async function createTask(payload) {
-  const { error } = await supabase.from("household_tasks").insert(payload);
+  const { data, error } = await supabase.from("household_tasks").insert(payload).select().single();
   if (error) throw error;
+  return data;
 }
 
 export async function updateTask(id, values) {
