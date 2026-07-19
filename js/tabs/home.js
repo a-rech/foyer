@@ -4,6 +4,7 @@ import { setBadgeVisible } from "../badges.js";
 const SECTIONS = [
   { tab: "shopping", label: "Listes", emoji: "🛒", color: "card-peach" },
   { tab: "recipes", label: "Recettes", emoji: "🍽️", color: "card-mint" },
+  { tab: "meals", label: "Repas", emoji: "🍲", color: "card-teal" },
   { tab: "calendar", label: "Calendrier", emoji: "📅", color: "card-sky" },
   { tab: "notes", label: "Notes", emoji: "📝", color: "card-yellow" },
   { tab: "tasks", label: "Tâches", emoji: "🧹", color: "card-rose" },
