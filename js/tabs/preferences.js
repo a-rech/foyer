@@ -1,4 +1,4 @@
-import { getUserPreferences, savePreferences, requestNotificationPermission } from "../notifications.js";
+import { getUserPreferences, savePreferences, requestNotificationPermission, subscribeToPush } from "../notifications.js";
 import { signOut } from "../auth.js";
 import { goHome } from "../router.js";
 import { getMyProfile, updateDisplayName } from "../profiles.js";
@@ -27,7 +27,7 @@ export async function mount(container, ctx) {
         <input type="time" id="quiet-end" value="${prefs.quiet_end || ""}" />
       </label>
       <button id="save-prefs">Enregistrer</button>
-      <button id="request-permission">Autoriser les notifications du navigateur</button>
+      <button id="request-permission">Activer les notifications sur cet appareil</button>
 
       <h3>Foyer</h3>
       <p>Code d'invitation : <strong>${ctx.household?.invite_code ?? "—"}</strong></p>
@@ -57,7 +57,16 @@ export async function mount(container, ctx) {
 
   document.getElementById("request-permission").addEventListener("click", async () => {
     const result = await requestNotificationPermission();
-    alert(result === "granted" ? "Notifications autorisées." : "Notifications refusées ou non supportées.");
+    if (result !== "granted") {
+      alert("Notifications refusées ou non supportées.");
+      return;
+    }
+    try {
+      await subscribeToPush(ctx.userId);
+      alert("Notifications activées sur cet appareil.");
+    } catch (err) {
+      alert("Erreur lors de l'activation : " + err.message);
+    }
   });
 
   document.getElementById("logout-btn").addEventListener("click", async () => {

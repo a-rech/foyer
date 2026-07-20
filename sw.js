@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 22;
+const CACHE_VERSION = 23;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -70,8 +70,36 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// Réception d'une notification Web Push (branchée en V2 via une Edge Function)
+// Réception d'une vraie notification Web Push envoyée par l'Edge Function
 self.addEventListener("push", (event) => {
-  const data = event.data ? event.data.json() : { title: "Foyer", body: "" };
-  event.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: "icons/icon-192.png" }));
+  let data = { title: "Foyer", body: "" };
+  try {
+    data = event.data ? event.data.json() : data;
+  } catch {
+    data.body = event.data ? event.data.text() : "";
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "icons/icon-192.png",
+      badge: "icons/icon-192.png",
+      data: { url: data.url || "./index.html" },
+    })
+  );
+});
+
+// Clic sur la notification : ouvre l'app, ou remet le focus sur un onglet déjà ouvert
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "./index.html";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.registration.scope) && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(targetUrl);
+    })
+  );
 });
