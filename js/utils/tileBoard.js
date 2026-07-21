@@ -12,12 +12,13 @@ let draggedEl = null;
 //   getId(item)       -> identifiant unique (obligatoire)
 //   getLabel(item)     -> texte affiché sur la tuile (obligatoire)
 //   emptyMessage       -> texte si la liste est vide
+//   isNew(item)         -> true pour afficher le badge vert "N" en haut à gauche
 //   onOpen(item)        -> tap sur le contenu de la tuile
 //   onEdit(item)        -> tap sur l'icône ✎ (omise si absente)
 //   onDelete(item)      -> tap sur l'icône 🗑️ (omise si absente)
 //   onReorder(orderedIds) -> appelé après un glisser-déposer avec la nouvelle liste d'ids
 export function renderTileBoard(boardEl, items, options) {
-  const { getId, getLabel, emptyMessage = "Rien pour l'instant.", onOpen, onEdit, onDelete, onReorder } = options;
+  const { getId, getLabel, emptyMessage = "Rien pour l'instant.", isNew, onOpen, onEdit, onDelete, onReorder } = options;
 
   if (!boardEl) return;
 
@@ -31,6 +32,7 @@ export function renderTileBoard(boardEl, items, options) {
       const color = COLOR_CYCLE[i % COLOR_CYCLE.length];
       return `
     <div class="tile-card ${color}" data-id="${getId(item)}">
+      ${isNew && isNew(item) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
       <div class="tile-card-header">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
         <div class="tile-card-actions">
