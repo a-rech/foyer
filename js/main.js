@@ -2,8 +2,7 @@ import { supabase } from "./supabase-client.js";
 import { signIn, signUp, getCurrentUser, onAuthChange } from "./auth.js";
 import { getMyHousehold, createHousehold, joinHousehold } from "./household.js";
 import { registerTab, initRouter } from "./router.js";
-import { subscribeToTable } from "./sync.js";
-import { getLastSeenMap, shouldShowBadge, setNewBadgeVisible, refreshTodayBadges } from "./badges.js";
+import { initBadges } from "./badges.js";
 import { ensureProfile } from "./profiles.js";
 
 import * as homeTab from "./tabs/home.js";
@@ -127,39 +126,15 @@ function renderAppShell(user, household) {
   registerTab("preferences", { mount: (c) => preferencesTab.mount(c, ctx), unmount: preferencesTab.unmount });
 
   initRouter("home");
-  watchBadgesInBackground(ctx);
+  initBadges(ctx.householdId, ctx.userId);
 }
 
-// Écoute en tâche de fond les tables des onglets non ouverts pour afficher les badges
-async function watchBadgesInBackground(ctx) {
-  const lastSeen = await getLastSeenMap(ctx.userId);
-
-  // Badge vert "N" : contenu ajouté par un autre membre du foyer, tant que non vu
-  const NEW_BADGE_TABLES = {
-    shopping_items: "shopping",
-    recipes: "recipes",
-    notes: "notes",
-    meal_plan_entries: "meals",
-  };
-
-  for (const [table, tabName] of Object.entries(NEW_BADGE_TABLES)) {
-    subscribeToTable(table, ctx.householdId, (payload) => {
-      const updatedAt = payload.new?.updated_at || payload.new?.created_at;
-      if (shouldShowBadge(updatedAt, lastSeen[tabName])) {
-        setNewBadgeVisible(tabName, true);
-      }
-    });
-  }
-
-  // Pastille rouge "à faire aujourd'hui" : calendrier et tâches, recalculée à
-  // chaque changement pertinent plutôt que basée sur la dernière visite
-  await refreshTodayBadges(ctx.householdId);
-  subscribeToTable("events", ctx.householdId, () => refreshTodayBadges(ctx.householdId));
-  subscribeToTable("household_tasks", ctx.householdId, () => refreshTodayBadges(ctx.householdId));
-}
-
+// onAuthChange() déclenche déjà son callback immédiatement avec la session en
+// cours à l'enregistrement (comportement standard de Supabase) : il ne faut
+// PAS appeler boot() une seconde fois ici, sinon tout s'exécute en double
+// (abonnements realtime dupliqués sur le même nom de canal, badges recalculés
+// deux fois...), ce qui rend le temps réel peu fiable.
 onAuthChange(() => boot());
-boot();
 
 // Enregistrement du service worker
 if ("serviceWorker" in navigator) {

@@ -111,7 +111,13 @@ async function hasUnseenContent(table, householdId, userId, authorCol, lastSeenA
     return false;
   }
   if (!data) return false;
-  return data.some((row) => row[authorCol] !== userId && shouldShowBadge(row.created_at, lastSeenAt));
+
+  const others = data.filter((row) => row[authorCol] !== userId);
+  const unseen = others.filter((row) => shouldShowBadge(row.created_at, lastSeenAt));
+  console.debug(
+    `[badges] ${table} → ${data.length} ligne(s) au total, ${others.length} d'un autre membre, ${unseen.length} non vue(s) (last_seen=${lastSeenAt ?? "jamais"})`
+  );
+  return unseen.length > 0;
 }
 
 // Recalcule et applique les pastilles rouges "à accomplir aujourd'hui" du
