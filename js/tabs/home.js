@@ -1,5 +1,5 @@
 import { enterTab } from "../router.js";
-import { setNewBadgeVisible, refreshTodayBadges } from "../badges.js";
+import { setNewBadgeVisible, refreshTodayBadges, applyStoredBadges } from "../badges.js";
 import { getMyProfile } from "../profiles.js";
 
 const SECTIONS = [
@@ -43,6 +43,10 @@ export async function mount(container, ctx) {
       enterTab(el.dataset.tab);
     });
   });
+
+  // Resynchronise les badges avec le dernier état connu : initBadges() calcule
+  // ses résultats de façon asynchrone et peut résoudre avant ou après ce rendu.
+  applyStoredBadges();
 
   // Recalcule les pastilles rouges à chaque retour à l'accueil (ex. après avoir
   // coché une tâche ou passé minuit) en plus de la mise à jour en temps réel.
