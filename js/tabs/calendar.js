@@ -393,7 +393,7 @@ function renderUpcomingImportant() {
   const birthdays = upcoming.filter((x) => x.event.is_birthday);
 
   renderUpcomingColumn(importantEl, important, "⭐", "Aucun événement important dans les 2 prochains mois.");
-  renderUpcomingColumn(birthdaysEl, birthdays, "🎂", "Aucun anniversaire dans les 2 prochains mois.");
+  renderUpcomingColumn(birthdaysEl, birthdays, "", "Aucun anniversaire dans les 2 prochains mois.");
 }
 
 function renderUpcomingColumn(el, entries, icon, emptyMessage) {
