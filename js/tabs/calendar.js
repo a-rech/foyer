@@ -186,8 +186,16 @@ function renderOverviewShell() {
       <div id="week-scroll" class="week-scroll">
         <div id="week-grid" class="week-grid"></div>
       </div>
-      <h3 class="upcoming-title">⭐ Événements importants à venir</h3>
-      <div id="upcoming-list" class="upcoming-list"></div>
+      <div class="upcoming-columns">
+        <div class="upcoming-column">
+          <h3 class="upcoming-title">⭐ Événements importants</h3>
+          <div id="upcoming-important-list" class="upcoming-list"></div>
+        </div>
+        <div class="upcoming-column">
+          <h3 class="upcoming-title">🎂 Anniversaires à venir</h3>
+          <div id="upcoming-birthdays-list" class="upcoming-list"></div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -369,27 +377,36 @@ function updateMonthLabel() {
 }
 
 function renderUpcomingImportant() {
-  const el = document.getElementById("upcoming-list");
-  if (!el) return;
+  const importantEl = document.getElementById("upcoming-important-list");
+  const birthdaysEl = document.getElementById("upcoming-birthdays-list");
+  if (!importantEl || !birthdaysEl) return;
   const now = new Date();
   const windowEnd = addDays(now, IMPORTANT_WINDOW_DAYS);
 
-  const important = [...eventsById.values()]
-    .filter((e) => e.important && !pendingDeleteIds.has(e.id))
+  const upcoming = [...eventsById.values()]
+    .filter((e) => !pendingDeleteIds.has(e.id))
     .map((e) => ({ event: e, occursAt: nextOccurrence(e, now) }))
     .filter((x) => x.occursAt >= now && x.occursAt <= windowEnd)
     .sort((a, b) => a.occursAt - b.occursAt);
 
-  if (important.length === 0) {
-    el.innerHTML = `<p class="empty-state">Aucun événement important dans les 2 prochains mois.</p>`;
+  const important = upcoming.filter((x) => x.event.important && !x.event.is_birthday);
+  const birthdays = upcoming.filter((x) => x.event.is_birthday);
+
+  renderUpcomingColumn(importantEl, important, "⭐", "Aucun événement important dans les 2 prochains mois.");
+  renderUpcomingColumn(birthdaysEl, birthdays, "🎂", "Aucun anniversaire dans les 2 prochains mois.");
+}
+
+function renderUpcomingColumn(el, entries, icon, emptyMessage) {
+  if (entries.length === 0) {
+    el.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
     return;
   }
 
-  el.innerHTML = important
+  el.innerHTML = entries
     .map(
       ({ event: e, occursAt }) => `
       <div class="event-item" data-id="${e.id}">
-        ${e.is_birthday ? "🎂" : "⭐"}
+        ${icon}
         <span class="event-title">${escapeHtml(e.title)}</span>
         <span class="event-date">${occursAt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
       </div>
@@ -399,7 +416,7 @@ function renderUpcomingImportant() {
 
   el.querySelectorAll(".event-item").forEach((row) => {
     row.addEventListener("click", () => {
-      const item = important.find((x) => x.event.id === row.dataset.id);
+      const item = entries.find((x) => x.event.id === row.dataset.id);
       eventReturnTo = "day";
       openDay(item.occursAt, item.event);
     });

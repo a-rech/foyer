@@ -3,7 +3,7 @@ import { signIn, signUp, getCurrentUser, onAuthChange } from "./auth.js";
 import { getMyHousehold, createHousehold, joinHousehold } from "./household.js";
 import { registerTab, initRouter } from "./router.js";
 import { subscribeToTable } from "./sync.js";
-import { getLastSeenMap, shouldShowBadge, setBadgeVisible } from "./badges.js";
+import { getLastSeenMap, shouldShowBadge, setNewBadgeVisible, refreshTodayBadges } from "./badges.js";
 import { ensureProfile } from "./profiles.js";
 
 import * as homeTab from "./tabs/home.js";
@@ -130,26 +130,32 @@ function renderAppShell(user, household) {
   watchBadgesInBackground(ctx);
 }
 
-// Écoute en tâche de fond les tables des onglets non ouverts pour afficher un badge
+// Écoute en tâche de fond les tables des onglets non ouverts pour afficher les badges
 async function watchBadgesInBackground(ctx) {
   const lastSeen = await getLastSeenMap(ctx.userId);
-  const watchedTables = {
+
+  // Badge vert "N" : contenu ajouté par un autre membre du foyer, tant que non vu
+  const NEW_BADGE_TABLES = {
     shopping_items: "shopping",
     recipes: "recipes",
-    events: "calendar",
     notes: "notes",
-    household_tasks: "tasks",
     meal_plan_entries: "meals",
   };
 
-  for (const [table, tabName] of Object.entries(watchedTables)) {
+  for (const [table, tabName] of Object.entries(NEW_BADGE_TABLES)) {
     subscribeToTable(table, ctx.householdId, (payload) => {
       const updatedAt = payload.new?.updated_at || payload.new?.created_at;
       if (shouldShowBadge(updatedAt, lastSeen[tabName])) {
-        setBadgeVisible(tabName, true);
+        setNewBadgeVisible(tabName, true);
       }
     });
   }
+
+  // Pastille rouge "à faire aujourd'hui" : calendrier et tâches, recalculée à
+  // chaque changement pertinent plutôt que basée sur la dernière visite
+  await refreshTodayBadges(ctx.householdId);
+  subscribeToTable("events", ctx.householdId, () => refreshTodayBadges(ctx.householdId));
+  subscribeToTable("household_tasks", ctx.householdId, () => refreshTodayBadges(ctx.householdId));
 }
 
 onAuthChange(() => boot());

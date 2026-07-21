@@ -1,5 +1,5 @@
 import { enterTab } from "../router.js";
-import { setBadgeVisible } from "../badges.js";
+import { setNewBadgeVisible, refreshTodayBadges } from "../badges.js";
 import { getMyProfile } from "../profiles.js";
 
 const SECTIONS = [
@@ -26,7 +26,8 @@ export async function mount(container, ctx) {
           <button class="hero-card ${s.color}" data-tab="${s.tab}">
             <span class="hero-emoji">${s.emoji}</span>
             <span class="hero-label">${s.label}</span>
-            <span class="badge-dot" data-tab-badge="${s.tab}"></span>
+            <span class="badge-new" data-tab-badge="${s.tab}">N</span>
+            <span class="badge-today" data-tab-badge-today="${s.tab}"></span>
           </button>
         `
         ).join("")}
@@ -36,10 +37,16 @@ export async function mount(container, ctx) {
 
   container.querySelectorAll(".hero-card").forEach((el) => {
     el.addEventListener("click", () => {
-      setBadgeVisible(el.dataset.tab, false);
+      // Seul le badge "nouveau contenu" se referme à l'ouverture de l'onglet ;
+      // la pastille "à faire aujourd'hui" reflète un fait objectif et reste affichée.
+      setNewBadgeVisible(el.dataset.tab, false);
       enterTab(el.dataset.tab);
     });
   });
+
+  // Recalcule les pastilles rouges à chaque retour à l'accueil (ex. après avoir
+  // coché une tâche ou passé minuit) en plus de la mise à jour en temps réel.
+  refreshTodayBadges(ctx.householdId);
 }
 
 export function unmount() {}

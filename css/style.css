@@ -386,7 +386,27 @@ button.secondary {
 }
 
 .hero-card { position: relative; }
-.hero-card .badge-dot {
-  display: none; position: absolute; top: 10px; right: 10px;
-  width: 10px; height: 10px; background: var(--danger); border-radius: 50%;
+.hero-card .badge-new {
+  display: none; align-items: center; justify-content: center;
+  position: absolute; top: 8px; left: 8px; min-width: 18px; height: 18px; padding: 0 4px;
+  background: #3FAE5C; color: #fff; border-radius: 999px; font-size: 0.65rem; font-weight: 800;
+  line-height: 1; box-shadow: var(--shadow);
 }
+.hero-card .badge-today {
+  display: none; position: absolute; top: 10px; left: 10px;
+  width: 12px; height: 12px; background: var(--danger); border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+
+/* Colonnes "événements importants" / "anniversaires à venir" du calendrier */
+.upcoming-columns { display: flex; gap: 10px; margin-top: 4px; }
+.upcoming-column { flex: 1; min-width: 0; }
+.upcoming-column .upcoming-title { font-size: 0.78rem; margin: 0 0 8px; }
+.upcoming-column .upcoming-list { max-height: 220px; }
+.upcoming-column .event-item {
+  flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 8px 10px; font-size: 0.8rem;
+}
+.upcoming-column .event-title { font-size: 0.82rem; }
+.upcoming-column .event-date { margin-left: 0; font-size: 0.75rem; }
+
