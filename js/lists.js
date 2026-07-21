@@ -5,19 +5,31 @@ export async function getLists(householdId) {
     .from("shopping_lists")
     .select("*")
     .eq("household_id", householdId)
-    .order("created_at", { ascending: true });
+    .order("position", { ascending: true });
   if (error) throw error;
   return data;
 }
 
 export async function createList(householdId, name, userId) {
+  // Nouvelle liste toujours ajoutée en dernière position
+  const { count } = await supabase
+    .from("shopping_lists")
+    .select("id", { count: "exact", head: true })
+    .eq("household_id", householdId);
+
   const { data, error } = await supabase
     .from("shopping_lists")
-    .insert({ household_id: householdId, name, created_by: userId })
+    .insert({ household_id: householdId, name, created_by: userId, position: count ?? 0 })
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+// Persiste la nouvelle position d'une liste après réordonnancement par glisser-déposer
+export async function updateListPosition(id, position) {
+  const { error } = await supabase.from("shopping_lists").update({ position }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function renameList(id, name) {
