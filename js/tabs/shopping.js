@@ -1,6 +1,6 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable, writeOrQueue } from "../sync.js";
-import { markTabSeen } from "../badges.js";
+import { markTabSeen, getLastSeenMap, computeUnseenIds } from "../badges.js";
 import { getLists, createList, deleteList, renameList, getItemsForList, updateListPosition } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
@@ -17,6 +17,8 @@ let currentHouseholdId = null;
 let currentUserId = null;
 let containerRef = null;
 let pendingDeleteIds = new Set(); // listes masquées le temps du toast d'annulation
+let shoppingLastSeenAt = null; // capturé avant markTabSeen, pour les badges "nouveau" par tuile
+let unseenListIds = new Set(); // listes contenant un article ajouté par un autre membre, non vu
 
 export async function mount(container, ctx) {
   containerRef = container;
@@ -25,7 +27,12 @@ export async function mount(container, ctx) {
   view = "lists";
   currentList = null;
 
+  // Capturé AVANT markTabSeen : sinon tout serait déjà "vu" dès l'ouverture de l'onglet
+  const previousLastSeen = await getLastSeenMap(currentUserId);
+  shoppingLastSeenAt = previousLastSeen["shopping"];
   await markTabSeen(currentUserId, "shopping");
+  await refreshUnseenListIds();
+
   await renderListsView();
 
   unsubscribeLists = subscribeToTable("shopping_lists", currentHouseholdId, async () => {
@@ -46,6 +53,16 @@ export function unmount() {
 async function loadLists() {
   lists = await getLists(currentHouseholdId);
   renderLists();
+}
+
+// Repère les listes contenant un article ajouté par un AUTRE membre du foyer,
+// non encore vu, pour afficher le badge "N" sur leur tuile
+async function refreshUnseenListIds() {
+  const { data, error } = await supabase
+    .from("shopping_items")
+    .select("list_id, added_by, created_at")
+    .eq("household_id", currentHouseholdId);
+  unseenListIds = error || !data ? new Set() : computeUnseenIds(data, "list_id", "added_by", currentUserId, shoppingLastSeenAt);
 }
 
 async function renderListsView() {
@@ -74,6 +91,7 @@ function renderLists() {
     getId: (l) => l.id,
     getLabel: (l) => l.name,
     emptyMessage: "Aucune liste pour l'instant.",
+    isNew: (list) => unseenListIds.has(list.id),
     onOpen: (list) => openList(list),
     onDelete: (list) => handleDeleteList(list.id),
     onReorder: handleReorderLists,

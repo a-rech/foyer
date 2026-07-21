@@ -1,6 +1,6 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
-import { markTabSeen } from "../badges.js";
+import { markTabSeen, getLastSeenMap, shouldShowBadge } from "../badges.js";
 import { goHome, pushView, goBack } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
@@ -13,6 +13,7 @@ let currentHouseholdId = null;
 let currentUserId = null;
 let containerRef = null;
 let pendingDeleteIds = new Set();
+let notesLastSeenAt = null; // capturé avant markTabSeen, pour les badges "nouveau" par tuile
 
 // Drag & drop (pointer events, compatible souris + tactile)
 let draggedEl = null;
@@ -24,7 +25,11 @@ export async function mount(container, ctx) {
   view = "board";
   currentNote = null;
 
+  // Capturé AVANT markTabSeen : sinon toute note serait déjà "vue" dès l'ouverture
+  const previousLastSeen = await getLastSeenMap(currentUserId);
+  notesLastSeenAt = previousLastSeen["notes"];
   await markTabSeen(currentUserId, "notes");
+
   await renderBoardView();
 
   unsubscribe = subscribeToTable("notes", currentHouseholdId, async () => {
@@ -116,6 +121,7 @@ function renderBoard() {
     .map(
       (n) => `
     <div class="note-card" data-id="${n.id}">
+      ${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
       <div class="note-card-header">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
         <button class="favorite-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
@@ -143,6 +149,11 @@ function renderBoard() {
   board.querySelectorAll(".drag-handle").forEach((el) => {
     el.addEventListener("pointerdown", onDragHandlePointerDown);
   });
+}
+
+// Une note est "nouvelle" si un AUTRE membre du foyer l'a ajoutée après notre dernière visite
+function isNoteNew(note) {
+  return note.created_by !== currentUserId && shouldShowBadge(note.created_at, notesLastSeenAt);
 }
 
 async function handleToggleFavorite(id) {

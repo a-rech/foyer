@@ -1,5 +1,6 @@
+import { supabase } from "../supabase-client.js";
 import { subscribeToTable } from "../sync.js";
-import { markTabSeen } from "../badges.js";
+import { markTabSeen, getLastSeenMap, shouldShowBadge, computeUnseenIds } from "../badges.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 import { renderTileBoard } from "../utils/tileBoard.js";
@@ -29,6 +30,8 @@ let currentUserId = null;
 let containerRef = null;
 let pendingDeleteCategoryIds = new Set();
 let pendingDeleteRecipeIds = new Set();
+let recipesLastSeenAt = null; // capturé avant markTabSeen, pour les badges "nouveau" par tuile
+let unseenCategoryIds = new Set(); // catégories contenant une recette non vue
 
 export async function mount(container, ctx) {
   containerRef = container;
@@ -38,7 +41,12 @@ export async function mount(container, ctx) {
   currentCategory = null;
   currentRecipe = null;
 
+  // Capturé AVANT markTabSeen : sinon tout serait déjà "vu" dès l'ouverture de l'onglet
+  const previousLastSeen = await getLastSeenMap(currentUserId);
+  recipesLastSeenAt = previousLastSeen["recipes"];
   await markTabSeen(currentUserId, "recipes");
+  await refreshUnseenCategoryIds();
+
   await renderCategoriesView();
 
   unsubscribeCategories = subscribeToTable("recipe_categories", currentHouseholdId, async () => {
@@ -59,6 +67,17 @@ export function unmount() {
 async function loadCategories() {
   categories = await getCategories(currentHouseholdId);
   renderCategories();
+}
+
+// Repère les catégories contenant une recette ajoutée par un AUTRE membre du
+// foyer, non encore vue, pour afficher le badge "N" sur leur tuile
+async function refreshUnseenCategoryIds() {
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("category_id, created_by, created_at")
+    .eq("household_id", currentHouseholdId);
+  unseenCategoryIds =
+    error || !data ? new Set() : computeUnseenIds(data, "category_id", "created_by", currentUserId, recipesLastSeenAt);
 }
 
 async function renderCategoriesView() {
@@ -87,9 +106,8 @@ function renderCategories() {
     getId: (c) => c.id,
     getLabel: (c) => c.name,
     emptyMessage: "Aucune catégorie pour l'instant.",
+    isNew: (cat) => unseenCategoryIds.has(cat.id),
     onOpen: (cat) => openCategory(cat),
-    onEdit: (cat) => startRenameCategory(cat.id),
-    onDelete: (cat) => handleDeleteCategory(cat.id),
     onReorder: handleReorderCategories,
   });
 }
@@ -114,53 +132,6 @@ async function handleCreateCategory(e) {
   input.value = "";
   await createCategory(currentHouseholdId, name, currentUserId);
   await loadCategories();
-}
-
-function startRenameCategory(id) {
-  const tile = document.querySelector(`.tile-card[data-id="${id}"]`);
-  const category = categories.find((c) => c.id === id);
-  if (!tile || !category) return;
-
-  const content = tile.querySelector(".tile-card-content");
-  content.outerHTML = `
-    <form class="inline-rename-form tile-inline-rename">
-      <input type="text" value="${escapeHtml(category.name)}" required />
-      <button type="submit">OK</button>
-    </form>
-  `;
-  const form = tile.querySelector("form");
-  const input = tile.querySelector("input");
-  input.focus();
-  form.addEventListener("click", (e) => e.stopPropagation());
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const newName = input.value.trim();
-    if (!newName) return;
-    await renameCategory(id, newName);
-    await loadCategories();
-  });
-}
-
-function handleDeleteCategory(id) {
-  const category = categories.find((c) => c.id === id);
-  if (!category) return;
-
-  pendingDeleteCategoryIds.add(id);
-  renderCategories();
-
-  showUndoToast({
-    message: `Catégorie « ${category.name} » supprimée`,
-    onUndo: () => {
-      pendingDeleteCategoryIds.delete(id);
-      renderCategories();
-    },
-    onConfirm: async () => {
-      pendingDeleteCategoryIds.delete(id);
-      await deleteCategory(id);
-      await loadCategories();
-    },
-  });
 }
 
 // ==========================================
@@ -188,12 +159,13 @@ async function renderCategoryScreen(category) {
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-categories" class="back-btn">‹ Toutes les catégories</button>
-      <h2 class="list-detail-title">${category.name}</h2>
+      <div class="detail-title-row" id="category-title-row"></div>
       <button id="new-recipe-btn">+ Nouvelle recette</button>
       <div id="recipes-container" class="tile-board"></div>
     </div>
   `;
 
+  renderCategoryTitleRow(category);
   document.getElementById("back-to-categories").addEventListener("click", () => goBack());
   document.getElementById("new-recipe-btn").addEventListener("click", () => openRecipeDetail(null));
 
@@ -201,6 +173,62 @@ async function renderCategoryScreen(category) {
 
   unsubscribeRecipes = subscribeToTable("recipes", currentHouseholdId, async () => {
     if (view === "recipes" && currentCategory?.id === category.id) await loadRecipes();
+  });
+}
+
+// Nom de la catégorie + renommer/supprimer sur la même ligne, comme dans le détail d'une liste
+function renderCategoryTitleRow(category) {
+  const row = document.getElementById("category-title-row");
+  if (!row) return;
+  row.innerHTML = `
+    <h2 class="list-detail-title">${escapeHtml(category.name)}</h2>
+    <div class="detail-title-actions">
+      <button id="rename-category-btn" class="icon-btn" aria-label="Renommer la catégorie">✎</button>
+      <button id="delete-category-detail-btn" class="icon-btn" aria-label="Supprimer la catégorie">🗑️</button>
+    </div>
+  `;
+  document.getElementById("rename-category-btn").addEventListener("click", () => startRenameCategoryInDetail(category));
+  document.getElementById("delete-category-detail-btn").addEventListener("click", () => handleDeleteCategoryFromDetail(category));
+}
+
+function startRenameCategoryInDetail(category) {
+  const row = document.getElementById("category-title-row");
+  if (!row) return;
+  row.innerHTML = `
+    <form class="inline-rename-form">
+      <input type="text" value="${escapeHtml(category.name)}" required />
+      <button type="submit">OK</button>
+    </form>
+  `;
+  const input = row.querySelector("input");
+  input.focus();
+  row.querySelector("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = input.value.trim();
+    if (!newName) return;
+    await renameCategory(category.id, newName);
+    category.name = newName;
+    const cached = categories.find((c) => c.id === category.id);
+    if (cached) cached.name = newName;
+    renderCategoryTitleRow(category);
+  });
+}
+
+function handleDeleteCategoryFromDetail(category) {
+  pendingDeleteCategoryIds.add(category.id);
+  goBack();
+
+  showUndoToast({
+    message: `Catégorie « ${category.name} » supprimée`,
+    onUndo: () => {
+      pendingDeleteCategoryIds.delete(category.id);
+      renderCategories();
+    },
+    onConfirm: async () => {
+      pendingDeleteCategoryIds.delete(category.id);
+      await deleteCategory(category.id);
+      await loadCategories();
+    },
   });
 }
 
@@ -220,6 +248,7 @@ function renderRecipes() {
     getId: (r) => r.id,
     getLabel: (r) => r.title,
     emptyMessage: "Aucune recette dans cette catégorie.",
+    isNew: (recipe) => recipe.created_by !== currentUserId && shouldShowBadge(recipe.created_at, recipesLastSeenAt),
     onOpen: (recipe) => openRecipeDetail(recipe),
     onDelete: (recipe) => handleDeleteRecipe(recipe.id),
     onReorder: handleReorderRecipes,
