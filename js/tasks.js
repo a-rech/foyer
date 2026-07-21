@@ -31,8 +31,13 @@ export function nextWeekday(from, weekday) {
   return addDays(d, diff);
 }
 
-// Calcule la prochaine date d'échéance d'une tâche selon sa récurrence
+// Calcule la prochaine date d'échéance d'une tâche selon sa récurrence.
+// Un report ponctuel (postponed_to, posé via le bouton "Plus tard") prend
+// toujours le dessus sur le calcul normal, jusqu'à ce que la tâche soit
+// accomplie (il est alors effacé et le rythme de récurrence reprend normalement).
 export function computeNextDue(task) {
+  if (task.postponed_to) return startOfDay(task.postponed_to);
+
   if (task.recurrence === "none") {
     if (task.last_completed_at) return null;
     return task.due_date ? startOfDay(task.due_date) : startOfDay(task.created_at);
@@ -84,9 +89,10 @@ export function daysUntilDue(task) {
 export function dueLabel(task) {
   const days = daysUntilDue(task);
   if (days === null) return "";
-  if (days < 0) return `En retard de ${-days} jour${-days > 1 ? "s" : ""}`;
   if (days === 0) return "À faire aujourd'hui";
   if (days === 1) return "À faire demain";
+  if (days === -1) return "À faire hier";
+  if (days < -1) return `À faire il y a ${-days} jours`;
   return `À faire dans ${days} jours`;
 }
 
@@ -135,8 +141,22 @@ export async function deleteTask(id) {
 }
 
 export async function completeTask(task) {
-  const values = { last_completed_at: new Date().toISOString() };
+  const values = { last_completed_at: new Date().toISOString(), postponed_to: null };
   if (task.recurrence === "none") values.archived = true;
   const { error } = await supabase.from("household_tasks").update(values).eq("id", task.id);
   if (error) throw error;
+}
+
+// Reporte l'échéance affichée d'une tâche d'un jour, sans toucher au rythme
+// de récurrence sous-jacent (efface au prochain "fait", voir completeTask).
+export async function postponeTaskOneDay(task) {
+  const current = computeNextDue(task) ?? startOfDay(new Date());
+  const next = addDays(current, 1);
+  await updateTask(task.id, { postponed_to: toDateOnly(next) });
+}
+
+function toDateOnly(date) {
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }

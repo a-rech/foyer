@@ -10,6 +10,7 @@ import {
   updateTask,
   deleteTask,
   completeTask,
+  postponeTaskOneDay,
   isTaskDue,
   daysUntilDue,
   dueLabel,
@@ -122,11 +123,18 @@ function renderTaskLists() {
         openTaskDetail(task);
       });
     });
+    container.querySelectorAll('[data-action="postpone"]').forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        handlePostpone(e.target.closest(".task-row").dataset.id);
+      });
+    });
   });
 }
 
 function taskRowHtml(task) {
   const overdue = (daysUntilDue(task) ?? 0) < 0;
+  const showPostpone = isTaskDue(task);
   return `
     <div class="task-row" data-id="${task.id}">
       <input type="checkbox" data-action="complete" aria-label="Marquer comme fait" />
@@ -135,6 +143,7 @@ function taskRowHtml(task) {
         <span class="task-row-meta">${profileName(task.assigned_to)} · ${recurrenceLabel(task)}</span>
         <span class="task-row-due ${overdue ? "is-overdue" : ""}">${dueLabel(task)}</span>
       </div>
+      ${showPostpone ? `<button type="button" class="task-row-postpone" data-action="postpone" aria-label="Reporter d'un jour">⏰ Plus tard</button>` : ""}
     </div>
   `;
 }
@@ -161,6 +170,15 @@ async function handleComplete(id) {
   const task = tasks.find((t) => t.id === id);
   if (!task) return;
   await completeTask(task);
+  await loadTasks();
+}
+
+// Report rapide d'un jour ("Plus tard") : ne modifie pas le rythme de
+// récurrence, seulement l'échéance affichée jusqu'au prochain "fait".
+async function handlePostpone(id) {
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return;
+  await postponeTaskOneDay(task);
   await loadTasks();
 }
 
@@ -268,7 +286,13 @@ async function handleSaveTask(e) {
   const interval = Math.max(1, parseInt(document.getElementById("t-interval").value) || 1);
   if (!title) return;
 
-  const values = { title, assigned_to: assignee, recurrence, recurrence_interval: recurrence === "none" ? 1 : interval };
+  const values = {
+    title,
+    assigned_to: assignee,
+    recurrence,
+    recurrence_interval: recurrence === "none" ? 1 : interval,
+    postponed_to: null,
+  };
 
   if (recurrence === "none") {
     values.due_date = document.getElementById("t-due-date").value || null;

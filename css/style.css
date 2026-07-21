@@ -294,6 +294,12 @@ button.secondary {
 .task-row-meta { font-size: 0.8rem; color: var(--text-muted); }
 .task-row-due { font-size: 0.78rem; font-weight: 600; color: var(--card-mint-text); margin-top: 2px; }
 .task-row-due.is-overdue { color: var(--danger); }
+.task-row-postpone {
+  width: auto; flex-shrink: 0; background: var(--secondary-bg); color: var(--secondary-text);
+  border: none; padding: 7px 10px; border-radius: var(--radius-sm);
+  font-size: 0.75rem; font-weight: 600; cursor: pointer;
+}
+
 
 .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 8px; }
 .week-nav button { width: auto; padding: 8px 12px; font-size: 0.85rem; margin: 0; }
