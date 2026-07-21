@@ -67,6 +67,18 @@ export function shouldShowBadge(eventUpdatedAt, lastSeenAt) {
   return new Date(eventUpdatedAt) > new Date(lastSeenAt);
 }
 
+// Calcule l'ensemble des ids "non vus" (ajoutés par un AUTRE membre du foyer
+// après lastSeenAt) à partir de lignes déjà chargées. Réutilisable pour des
+// badges par tuile (catégorie contenant une recette non vue, liste contenant
+// un article non vu, note elle-même non vue...).
+export function computeUnseenIds(rows, idCol, authorCol, userId, lastSeenAt) {
+  const ids = new Set();
+  for (const row of rows) {
+    if (row[authorCol] !== userId && shouldShowBadge(row.created_at, lastSeenAt)) ids.add(row[idCol]);
+  }
+  return ids;
+}
+
 // Point d'entrée unique appelé une fois au démarrage de l'app : initialise puis
 // maintient à jour les deux familles de badges (vert "N" et pastille rouge).
 export async function initBadges(householdId, userId) {
