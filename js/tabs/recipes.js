@@ -1,6 +1,8 @@
 import { subscribeToTable } from "../sync.js";
 import { markTabSeen } from "../badges.js";
 import { showUndoToast } from "../utils/toast.js";
+import { escapeHtml } from "../utils/format.js";
+import { renderTileBoard } from "../utils/tileBoard.js";
 import { pushView, goBack, goHome } from "../router.js";
 import {
   getCategories,
@@ -11,6 +13,8 @@ import {
   createRecipe,
   updateRecipe,
   deleteRecipe,
+  updateCategoryPosition,
+  updateRecipePosition,
 } from "../categories.js";
 
 let unsubscribeCategories = null;
@@ -65,7 +69,7 @@ async function renderCategoriesView() {
         <input id="new-category-name" placeholder="Nouvelle catégorie…" required />
         <button type="submit">+</button>
       </form>
-      <div id="categories-container"></div>
+      <div id="categories-container" class="tile-board"></div>
     </div>
   `;
   document.getElementById("home-btn-recipes").addEventListener("click", () => goHome());
@@ -79,35 +83,27 @@ function renderCategories() {
 
   const visible = categories.filter((c) => !pendingDeleteCategoryIds.has(c.id));
 
-  if (visible.length === 0) {
-    el.innerHTML = `<p class="empty-state">Aucune catégorie pour l'instant.</p>`;
-    return;
-  }
+  renderTileBoard(el, visible, {
+    getId: (c) => c.id,
+    getLabel: (c) => c.name,
+    emptyMessage: "Aucune catégorie pour l'instant.",
+    onOpen: (cat) => openCategory(cat),
+    onEdit: (cat) => startRenameCategory(cat.id),
+    onDelete: (cat) => handleDeleteCategory(cat.id),
+    onReorder: handleReorderCategories,
+  });
+}
 
-  el.innerHTML = visible
-    .map(
-      (c) => `
-    <div class="list-row" data-id="${c.id}">
-      <span class="list-row-name" data-action="open">${c.name}</span>
-      <button class="list-row-icon-btn" data-action="edit" aria-label="Modifier">✎</button>
-      <button class="list-row-delete" data-action="delete" aria-label="Supprimer">✕</button>
-    </div>
-  `
-    )
-    .join("");
+async function handleReorderCategories(orderedIds) {
+  categories = orderedIds
+    .map((id, index) => {
+      const cat = categories.find((c) => c.id === id);
+      if (cat) cat.position = index;
+      return cat;
+    })
+    .filter(Boolean);
 
-  el.querySelectorAll('[data-action="open"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const cat = categories.find((c) => c.id === e.target.closest(".list-row").dataset.id);
-      openCategory(cat);
-    });
-  });
-  el.querySelectorAll('[data-action="edit"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => startRenameCategory(e.target.closest(".list-row").dataset.id));
-  });
-  el.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => handleDeleteCategory(e.target.closest(".list-row").dataset.id));
-  });
+  await Promise.all(categories.map((c) => updateCategoryPosition(c.id, c.position)));
 }
 
 async function handleCreateCategory(e) {
@@ -121,20 +117,25 @@ async function handleCreateCategory(e) {
 }
 
 function startRenameCategory(id) {
-  const row = document.querySelector(`.list-row[data-id="${id}"]`);
+  const tile = document.querySelector(`.tile-card[data-id="${id}"]`);
   const category = categories.find((c) => c.id === id);
-  if (!row || !category) return;
+  if (!tile || !category) return;
 
-  row.innerHTML = `
-    <form class="inline-rename-form">
-      <input type="text" value="${category.name}" required />
+  const content = tile.querySelector(".tile-card-content");
+  content.outerHTML = `
+    <form class="inline-rename-form tile-inline-rename">
+      <input type="text" value="${escapeHtml(category.name)}" required />
       <button type="submit">OK</button>
     </form>
   `;
-  row.querySelector("input").focus();
-  row.querySelector("form").addEventListener("submit", async (e) => {
+  const form = tile.querySelector("form");
+  const input = tile.querySelector("input");
+  input.focus();
+  form.addEventListener("click", (e) => e.stopPropagation());
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const newName = row.querySelector("input").value.trim();
+    e.stopPropagation();
+    const newName = input.value.trim();
     if (!newName) return;
     await renameCategory(id, newName);
     await loadCategories();
@@ -189,7 +190,7 @@ async function renderCategoryScreen(category) {
       <button id="back-to-categories" class="back-btn">‹ Toutes les catégories</button>
       <h2 class="list-detail-title">${category.name}</h2>
       <button id="new-recipe-btn">+ Nouvelle recette</button>
-      <div id="recipes-container"></div>
+      <div id="recipes-container" class="tile-board"></div>
     </div>
   `;
 
@@ -215,32 +216,26 @@ function renderRecipes() {
 
   const visible = recipes.filter((r) => !pendingDeleteRecipeIds.has(r.id));
 
-  if (visible.length === 0) {
-    el.innerHTML = `<p class="empty-state">Aucune recette dans cette catégorie.</p>`;
-    return;
-  }
-
-  el.innerHTML = visible
-    .map(
-      (r) => `
-    <div class="list-row" data-id="${r.id}">
-      <span class="list-row-name" data-action="open">${r.title}</span>
-      <button class="list-row-icon-btn" data-action="edit" aria-label="Modifier">✎</button>
-      <button class="list-row-delete" data-action="delete" aria-label="Supprimer">✕</button>
-    </div>
-  `
-    )
-    .join("");
-
-  el.querySelectorAll('[data-action="open"], [data-action="edit"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const recipe = recipes.find((r) => r.id === e.target.closest(".list-row").dataset.id);
-      openRecipeDetail(recipe);
-    });
+  renderTileBoard(el, visible, {
+    getId: (r) => r.id,
+    getLabel: (r) => r.title,
+    emptyMessage: "Aucune recette dans cette catégorie.",
+    onOpen: (recipe) => openRecipeDetail(recipe),
+    onDelete: (recipe) => handleDeleteRecipe(recipe.id),
+    onReorder: handleReorderRecipes,
   });
-  el.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => handleDeleteRecipe(e.target.closest(".list-row").dataset.id));
-  });
+}
+
+async function handleReorderRecipes(orderedIds) {
+  recipes = orderedIds
+    .map((id, index) => {
+      const recipe = recipes.find((r) => r.id === id);
+      if (recipe) recipe.position = index;
+      return recipe;
+    })
+    .filter(Boolean);
+
+  await Promise.all(recipes.map((r) => updateRecipePosition(r.id, r.position)));
 }
 
 function handleDeleteRecipe(id) {

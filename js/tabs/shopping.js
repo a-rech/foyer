@@ -1,9 +1,10 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable, writeOrQueue } from "../sync.js";
 import { markTabSeen } from "../badges.js";
-import { getLists, createList, deleteList, renameList, getItemsForList } from "../lists.js";
+import { getLists, createList, deleteList, renameList, getItemsForList, updateListPosition } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
+import { renderTileBoard } from "../utils/tileBoard.js";
 import { pushView, goBack, goHome } from "../router.js";
 
 let unsubscribeLists = null;
@@ -55,7 +56,7 @@ async function renderListsView() {
         <input id="new-list-name" placeholder="Nouvelle liste…" required />
         <button type="submit">+</button>
       </form>
-      <div id="lists-container"></div>
+      <div id="lists-container" class="tile-board"></div>
     </div>
   `;
   document.getElementById("home-btn-lists").addEventListener("click", () => goHome());
@@ -69,31 +70,26 @@ function renderLists() {
 
   const visible = lists.filter((l) => !pendingDeleteIds.has(l.id));
 
-  if (visible.length === 0) {
-    el.innerHTML = `<p class="empty-state">Aucune liste pour l'instant.</p>`;
-    return;
-  }
-
-  el.innerHTML = visible
-    .map(
-      (l) => `
-    <div class="list-row" data-id="${l.id}">
-      <span class="list-row-name" data-action="open">${l.name}</span>
-      <button class="list-row-delete" data-action="delete" aria-label="Supprimer la liste">✕</button>
-    </div>
-  `
-    )
-    .join("");
-
-  el.querySelectorAll('[data-action="open"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const list = lists.find((l) => l.id === e.target.closest(".list-row").dataset.id);
-      openList(list);
-    });
+  renderTileBoard(el, visible, {
+    getId: (l) => l.id,
+    getLabel: (l) => l.name,
+    emptyMessage: "Aucune liste pour l'instant.",
+    onOpen: (list) => openList(list),
+    onDelete: (list) => handleDeleteList(list.id),
+    onReorder: handleReorderLists,
   });
-  el.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-    btn.addEventListener("click", (e) => handleDeleteList(e.target.closest(".list-row").dataset.id));
-  });
+}
+
+async function handleReorderLists(orderedIds) {
+  lists = orderedIds
+    .map((id, index) => {
+      const list = lists.find((l) => l.id === id);
+      if (list) list.position = index;
+      return list;
+    })
+    .filter(Boolean);
+
+  await Promise.all(lists.map((l) => updateListPosition(l.id, l.position)));
 }
 
 async function handleCreateList(e) {
