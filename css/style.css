@@ -259,10 +259,10 @@ button.secondary {
   background: var(--card-yellow); color: var(--card-yellow-text);
   border-radius: var(--radius-sm); box-shadow: var(--shadow);
   padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 6px;
-  min-height: 110px; transition: opacity 0.15s;
+  min-height: 110px; transition: opacity 0.15s; position: relative;
 }
 .note-card.dragging { opacity: 0.5; }
-.note-card-header { display: flex; justify-content: space-between; align-items: center; }
+.note-card-header { display: flex; justify-content: center; align-items: center; position: relative; min-height: 24px; }
 .drag-handle {
   cursor: grab; touch-action: none; font-size: 1.1rem; opacity: 0.6;
   padding: 4px 6px; user-select: none;
@@ -270,11 +270,20 @@ button.secondary {
 .favorite-btn {
   width: auto; background: none; border: none; font-size: 1.1rem;
   cursor: pointer; padding: 2px 4px; opacity: 0.6;
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
 }
 .favorite-btn.is-favorite { opacity: 1; }
 .note-card-content {
   margin: 0; font-weight: 500; cursor: pointer; word-break: break-word;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* Badge vert "nouveau" réutilisé sur toutes les tuiles (notes, listes, catégories, recettes) */
+.tile-badge-new {
+  display: flex; align-items: center; justify-content: center;
+  position: absolute; top: 8px; left: 8px; min-width: 18px; height: 18px; padding: 0 4px;
+  background: #3FAE5C; color: #fff; border-radius: 999px; font-size: 0.65rem; font-weight: 800;
+  line-height: 1; box-shadow: var(--shadow); z-index: 2;
 }
 
 .note-detail-actions { display: flex; gap: 10px; margin-top: 10px; }
@@ -327,11 +336,11 @@ button.secondary {
 .tile-card {
   border-radius: var(--radius-sm); box-shadow: var(--shadow);
   padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 10px;
-  min-height: 92px; transition: opacity 0.15s;
+  min-height: 92px; transition: opacity 0.15s; position: relative;
 }
 .tile-card.dragging { opacity: 0.5; }
-.tile-card-header { display: flex; justify-content: space-between; align-items: center; }
-.tile-card-actions { display: flex; align-items: center; }
+.tile-card-header { display: flex; justify-content: center; align-items: center; position: relative; min-height: 24px; }
+.tile-card-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
 .tile-icon-btn {
   width: auto; background: none; border: none; font-size: 1rem;
   cursor: pointer; padding: 2px 6px; opacity: 0.65;
