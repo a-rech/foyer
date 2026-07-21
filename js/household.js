@@ -43,3 +43,14 @@ export async function getHouseholdMembers(householdId) {
   if (error) throw error;
   return data;
 }
+
+// Retire un membre du foyer (accès révoqué : il devra utiliser un nouveau
+// code d'invitation pour rejoindre à nouveau)
+export async function removeMember(householdId, userId) {
+  const { error } = await supabase
+    .from("household_members")
+    .delete()
+    .eq("household_id", householdId)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
