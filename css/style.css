@@ -2,11 +2,14 @@
    THEME PASTEL CHALEUREUX
    ========================================== */
 :root {
+  color-scheme: light;
   --bg: #FFF8F0;
   --surface: #FFFFFF;
   --text: #4A3F35;
   --text-muted: #9C8F82;
   --border: #F0E4D8;
+  --chip-overlay: rgba(255, 255, 255, 0.55);
+  --chip-overlay-strong: rgba(255, 255, 255, 0.3);
 
   --primary: #F4A896;       /* corail pastel */
   --primary-dark: #E88B76;
@@ -39,68 +42,81 @@
    explicitement choisi "clair" dans les réglages */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #1C1815;
-    --surface: #262019;
-    --text: #F1E9DE;
-    --text-muted: #B0A395;
-    --border: #3A322A;
+    --surface: #2A241D;
+    --text: #F5EFE6;
+    --text-muted: #BDB0A2;
+    --border: #4A4034;
+    --chip-overlay: rgba(0, 0, 0, 0.28);
+    --chip-overlay-strong: rgba(0, 0, 0, 0.16);
 
-    --primary: #F4A896;
-    --primary-dark: #E88B76;
+    --primary: #F6B29F;
+    --primary-dark: #F09A82;
 
-    --card-peach: #4A3226;
-    --card-peach-text: #FFC9A8;
-    --card-mint: #21382E;
-    --card-mint-text: #8FDBB6;
-    --card-sky: #223440;
-    --card-sky-text: #9CD3F2;
-    --card-yellow: #3D3319;
-    --card-yellow-text: #F5D889;
-    --card-lavender: #302A47;
-    --card-lavender-text: #CBB8F0;
-    --card-rose: #3E2830;
-    --card-rose-text: #F3AFC4;
-    --card-teal: #1E3A36;
-    --card-teal-text: #8FE3D6;
+    --card-peach: #55392A;
+    --card-peach-text: #FFD3B3;
+    --card-mint: #24402F;
+    --card-mint-text: #9EE8C0;
+    --card-sky: #253A48;
+    --card-sky-text: #A9DAF6;
+    --card-yellow: #453620;
+    --card-yellow-text: #FADD8F;
+    --card-lavender: #362E52;
+    --card-lavender-text: #D6C4F5;
+    --card-rose: #472B34;
+    --card-rose-text: #F6B9CC;
+    --card-teal: #1F4038;
+    --card-teal-text: #9CEBDD;
 
-    --danger: #F0917E;
-    --danger-bg: #402521;
-    --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --danger: #F3A08D;
+    --danger-bg: #48281F;
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   }
 }
 
 /* Thème sombre choisi explicitement (prioritaire sur le système) */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #1C1815;
-  --surface: #262019;
-  --text: #F1E9DE;
-  --text-muted: #B0A395;
-  --border: #3A322A;
+  --surface: #2A241D;
+  --text: #F5EFE6;
+  --text-muted: #BDB0A2;
+  --border: #4A4034;
+  --chip-overlay: rgba(0, 0, 0, 0.28);
+  --chip-overlay-strong: rgba(0, 0, 0, 0.16);
 
-  --primary: #F4A896;
-  --primary-dark: #E88B76;
+  --primary: #F6B29F;
+  --primary-dark: #F09A82;
 
-  --card-peach: #4A3226;
-  --card-peach-text: #FFC9A8;
-  --card-mint: #21382E;
-  --card-mint-text: #8FDBB6;
-  --card-sky: #223440;
-  --card-sky-text: #9CD3F2;
-  --card-yellow: #3D3319;
-  --card-yellow-text: #F5D889;
-  --card-lavender: #302A47;
-  --card-lavender-text: #CBB8F0;
-  --card-rose: #3E2830;
-  --card-rose-text: #F3AFC4;
-  --card-teal: #1E3A36;
-  --card-teal-text: #8FE3D6;
+  --card-peach: #55392A;
+  --card-peach-text: #FFD3B3;
+  --card-mint: #24402F;
+  --card-mint-text: #9EE8C0;
+  --card-sky: #253A48;
+  --card-sky-text: #A9DAF6;
+  --card-yellow: #453620;
+  --card-yellow-text: #FADD8F;
+  --card-lavender: #362E52;
+  --card-lavender-text: #D6C4F5;
+  --card-rose: #472B34;
+  --card-rose-text: #F6B9CC;
+  --card-teal: #1F4038;
+  --card-teal-text: #9CEBDD;
 
-  --danger: #F0917E;
-  --danger-bg: #402521;
-  --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --danger: #F3A08D;
+  --danger-bg: #48281F;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
+
+/* Sans cette règle, les champs de formulaire gardent la couleur de texte par
+   défaut du navigateur (souvent noir) au lieu de suivre le thème — invisible
+   en thème sombre sur un fond de champ sombre. */
+input, textarea, select {
+  color: var(--text);
+}
 
 body {
   margin: 0;
@@ -454,12 +470,12 @@ button.secondary {
 
 .undo-toast {
   position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
-  background: var(--text); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm);
+  background: #332B22; color: #fff; padding: 12px 18px; border-radius: var(--radius-sm);
   display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow);
   z-index: 1000; font-size: 0.9rem; max-width: 90%;
 }
 .undo-toast button {
-  background: none; border: none; color: var(--card-yellow); font-weight: 700;
+  background: none; border: none; color: #FADD8F; font-weight: 700;
   cursor: pointer; font-size: 0.9rem; padding: 0;
 }
 
@@ -568,7 +584,7 @@ button.secondary {
   margin: 8px 0 4px; font-weight: 600;
 }
 
-.info-toast { background: var(--card-mint-text); }
+.info-toast { background: #2F8560; }
 
 /* Bloc "Aujourd'hui" sur l'accueil */
 .today-block {
@@ -581,10 +597,10 @@ button.secondary {
 .today-group-title { display: block; font-weight: 800; font-size: 0.8rem; margin-bottom: 6px; }
 .today-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .today-chip {
-  background: rgba(255,255,255,0.55); padding: 5px 11px; border-radius: 999px;
+  background: var(--chip-overlay); padding: 5px 11px; border-radius: 999px;
   font-size: 0.8rem; font-weight: 600;
 }
-.today-chip-more { background: rgba(255,255,255,0.3); }
+.today-chip-more { background: var(--chip-overlay-strong); }
 .today-empty { margin: 0; font-size: 0.88rem; opacity: 0.85; }
 
 /* Sélecteur de thème (Réglages) */
