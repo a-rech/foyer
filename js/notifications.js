@@ -24,14 +24,21 @@ export async function subscribeToPush(userId) {
   }
 
   const registration = await navigator.serviceWorker.ready;
-  let subscription = await registration.pushManager.getSubscription();
 
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+  // On repart toujours d'un abonnement neuf. Un abonnement déjà présent sur
+  // cet appareil peut appartenir à un AUTRE compte (ex. testé plus tôt sur ce
+  // même navigateur) : l'upsert plus bas tenterait alors de modifier une ligne
+  // qui ne nous appartient pas, ce que RLS bloque ("USING expression").
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    await supabase.from("push_subscriptions").delete().eq("endpoint", existing.endpoint);
+    await existing.unsubscribe();
   }
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
 
   const json = subscription.toJSON();
   const { error } = await supabase.from("push_subscriptions").upsert(
