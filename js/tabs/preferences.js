@@ -167,9 +167,21 @@ async function handleCheckForUpdate() {
     if (!("serviceWorker" in navigator)) throw new Error("non supporté sur ce navigateur");
     const reg = await navigator.serviceWorker.getRegistration();
     if (!reg) throw new Error("service worker non disponible");
+
+    const versionBefore = await getServiceWorkerVersion().catch(() => null);
     await reg.update();
-    showStatus("update-status", "À jour — rechargement...");
-    setTimeout(() => location.reload(), 700);
+    // sw.js appelle skipWaiting() : une éventuelle nouvelle version s'active
+    // très vite plutôt que de rester "en attente" — on laisse un court
+    // instant pour ça avant de revérifier.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const versionAfter = await getServiceWorkerVersion().catch(() => null);
+
+    if (versionAfter && versionBefore && versionAfter !== versionBefore) {
+      showStatus("update-status", `Nouvelle version trouvée (v${versionAfter}) — rechargement...`);
+      setTimeout(() => location.reload(), 600);
+    } else {
+      showStatus("update-status", "Vous êtes déjà à jour ✓");
+    }
   } catch (err) {
     showStatus("update-status", "Erreur : " + err.message);
   }
