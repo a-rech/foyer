@@ -8,7 +8,7 @@ import {
 import { signOut } from "../auth.js";
 import { goHome } from "../router.js";
 import { getMyProfile, updateDisplayName, getHouseholdProfiles } from "../profiles.js";
-import { removeMember } from "../household.js";
+import { removeMember, renameHousehold } from "../household.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 
@@ -34,7 +34,7 @@ export async function mount(container, ctx) {
         <h3>👤 Profil</h3>
         <label class="field-label" for="display-name">Votre nom (visible par le foyer)</label>
         <input id="display-name" value="${escapeHtml(profile?.display_name ?? "")}" />
-        <button id="save-name">Enregistrer le nom</button>
+        <button id="save-name" class="btn-primary">Enregistrer le nom</button>
         <p class="prefs-status" id="name-status"></p>
       </section>
 
@@ -52,14 +52,19 @@ export async function mount(container, ctx) {
           <input type="time" id="quiet-end" value="${prefs.quiet_end || ""}" />
         </div>
 
-        <button id="save-prefs">Enregistrer</button>
-        <button id="request-permission" class="secondary">Activer sur cet appareil</button>
-        <button id="disable-notif-btn" class="prefs-danger-btn">🔕 Désactiver totalement les notifications</button>
+        <button id="save-prefs" class="btn-primary">Enregistrer</button>
+        <button id="prefs-request-permission" class="btn-secondary">🔔 Activer sur cet appareil</button>
+        <button id="prefs-disable-notif" class="btn-danger">🔕 Désactiver totalement les notifications</button>
         <p class="prefs-status" id="notif-status"></p>
       </section>
 
       <section class="prefs-section card-peach">
         <h3>🏡 Foyer</h3>
+        <label class="field-label" for="household-name">Nom du foyer</label>
+        <input id="household-name" value="${escapeHtml(ctx.household?.name ?? "")}" />
+        <button id="save-household-name" class="btn-primary">Renommer le foyer</button>
+        <p class="prefs-status" id="household-status"></p>
+
         <label class="field-label">Code d'invitation</label>
         <p class="prefs-invite-code">${escapeHtml(ctx.household?.invite_code ?? "—")}</p>
 
@@ -69,10 +74,12 @@ export async function mount(container, ctx) {
 
       <section class="prefs-section card-rose">
         <h3>🔐 Compte</h3>
-        <button id="logout-btn" class="secondary">Déconnexion</button>
+        <button id="prefs-check-update" class="btn-secondary">🔄 Vérifier les mises à jour</button>
+        <p class="prefs-status" id="update-status"></p>
+        <button id="prefs-logout" class="btn-danger">Déconnexion</button>
       </section>
 
-      <p class="prefs-version" id="prefs-version"></p>
+      <p class="prefs-version" id="prefs-version">Foyer</p>
     </div>
   `;
 
@@ -97,7 +104,7 @@ export async function mount(container, ctx) {
     showStatus("notif-status", "Préférences enregistrées ✓");
   });
 
-  document.getElementById("request-permission").addEventListener("click", async () => {
+  document.getElementById("prefs-request-permission").addEventListener("click", async () => {
     const result = await requestNotificationPermission();
     if (result !== "granted") {
       showStatus("notif-status", "Notifications refusées ou non supportées.");
@@ -111,7 +118,7 @@ export async function mount(container, ctx) {
     }
   });
 
-  document.getElementById("disable-notif-btn").addEventListener("click", async () => {
+  document.getElementById("prefs-disable-notif").addEventListener("click", async () => {
     document.getElementById("notif-enabled").checked = false;
     await savePreferences(ctx.userId, {
       notifications_enabled: false,
@@ -126,10 +133,34 @@ export async function mount(container, ctx) {
     showStatus("notif-status", "Notifications désactivées sur ce compte et cet appareil.");
   });
 
-  document.getElementById("logout-btn").addEventListener("click", async () => {
+  document.getElementById("save-household-name").addEventListener("click", async () => {
+    const name = document.getElementById("household-name").value.trim();
+    if (!name) return;
+    await renameHousehold(ctx.householdId, name);
+    if (ctx.household) ctx.household.name = name; // reflète le changement partout (accueil...) sans recharger
+    showStatus("household-status", "Foyer renommé ✓");
+  });
+
+  document.getElementById("prefs-check-update").addEventListener("click", handleCheckForUpdate);
+
+  document.getElementById("prefs-logout").addEventListener("click", async () => {
     await signOut();
     location.reload();
   });
+}
+
+async function handleCheckForUpdate() {
+  showStatus("update-status", "Recherche d'une mise à jour...");
+  try {
+    if (!("serviceWorker" in navigator)) throw new Error("non supporté sur ce navigateur");
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) throw new Error("service worker non disponible");
+    await reg.update();
+    showStatus("update-status", "À jour — rechargement...");
+    setTimeout(() => location.reload(), 700);
+  } catch (err) {
+    showStatus("update-status", "Erreur : " + err.message);
+  }
 }
 
 function showStatus(elId, message) {
@@ -188,19 +219,43 @@ function handleRemoveMember(userId) {
   });
 }
 
-// Lit le numéro de cache actif directement depuis le Cache Storage du
-// navigateur (alimenté par CACHE_VERSION dans sw.js) : aucune duplication de
-// constante à tenir à jour entre les deux fichiers.
+// Lit la version directement depuis le service worker actif via un message
+// (plus fiable qu'une déduction depuis le nom du cache, qui peut être absent
+// ou en transition juste après un déploiement).
 async function renderCacheVersion() {
   const el = document.getElementById("prefs-version");
-  if (!el || !("caches" in window)) return;
+  if (!el) return;
   try {
-    const keys = await caches.keys();
-    const match = keys.map((k) => k.match(/^foyer-cache-v(\d+)$/)).find(Boolean);
-    el.textContent = match ? `Foyer · cache v${match[1]}` : "Foyer";
+    const version = await getServiceWorkerVersion();
+    el.textContent = version ? `Foyer · version ${version}` : "Foyer";
   } catch {
     el.textContent = "Foyer";
   }
+}
+
+function getServiceWorkerVersion() {
+  return new Promise((resolve, reject) => {
+    if (!("serviceWorker" in navigator)) {
+      reject(new Error("non supporté"));
+      return;
+    }
+    navigator.serviceWorker.ready
+      .then((reg) => {
+        const worker = reg.active;
+        if (!worker) {
+          reject(new Error("pas de worker actif"));
+          return;
+        }
+        const channel = new MessageChannel();
+        const timeout = setTimeout(() => reject(new Error("timeout")), 2000);
+        channel.port1.onmessage = (event) => {
+          clearTimeout(timeout);
+          resolve(event.data?.version);
+        };
+        worker.postMessage({ type: "GET_VERSION" }, [channel.port2]);
+      })
+      .catch(reject);
+  });
 }
 
 export function unmount() {}

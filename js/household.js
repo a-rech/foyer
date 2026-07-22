@@ -54,3 +54,8 @@ export async function removeMember(householdId, userId) {
     .eq("user_id", userId);
   if (error) throw error;
 }
+
+export async function renameHousehold(householdId, name) {
+  const { error } = await supabase.from("households").update({ name }).eq("id", householdId);
+  if (error) throw error;
+}

@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 31;
+const CACHE_VERSION = 32;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -32,6 +32,15 @@ const APP_SHELL = [
   "js/tabs/meals.js",
   "js/tabs/preferences.js",
 ];
+
+// Répond à une demande de version envoyée par la page (voir preferences.js) :
+// lecture directe de la constante, plus fiable qu'une déduction depuis le
+// nom du cache (qui peut être absent/en transition juste après un déploiement).
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "GET_VERSION") {
+    event.ports[0]?.postMessage({ version: CACHE_VERSION });
+  }
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
