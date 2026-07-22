@@ -44,33 +44,33 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #1C1815;
-    --surface: #2A241D;
-    --text: #F5EFE6;
-    --text-muted: #BDB0A2;
-    --border: #4A4034;
+    --surface: #2E2820;
+    --text: #FDF8F0;
+    --text-muted: #CBBEAE;
+    --border: #564B3D;
     --chip-overlay: rgba(0, 0, 0, 0.28);
     --chip-overlay-strong: rgba(0, 0, 0, 0.16);
 
-    --primary: #F6B29F;
-    --primary-dark: #F09A82;
+    --primary: #F8BBA9;
+    --primary-dark: #F4A28D;
 
-    --card-peach: #55392A;
-    --card-peach-text: #FFD3B3;
-    --card-mint: #24402F;
-    --card-mint-text: #9EE8C0;
-    --card-sky: #253A48;
-    --card-sky-text: #A9DAF6;
-    --card-yellow: #453620;
-    --card-yellow-text: #FADD8F;
-    --card-lavender: #362E52;
-    --card-lavender-text: #D6C4F5;
-    --card-rose: #472B34;
-    --card-rose-text: #F6B9CC;
-    --card-teal: #1F4038;
-    --card-teal-text: #9CEBDD;
+    --card-peach: #5E4130;
+    --card-peach-text: #FFDCC0;
+    --card-mint: #27462F;
+    --card-mint-text: #B4F0CE;
+    --card-sky: #2A4356;
+    --card-sky-text: #BCE3FA;
+    --card-yellow: #4C3C22;
+    --card-yellow-text: #FCE6A8;
+    --card-lavender: #3C3459;
+    --card-lavender-text: #E1D3F8;
+    --card-rose: #503038;
+    --card-rose-text: #F9C9D8;
+    --card-teal: #234A40;
+    --card-teal-text: #AEF0E4;
 
-    --danger: #F3A08D;
-    --danger-bg: #48281F;
+    --danger: #F6AC9B;
+    --danger-bg: #4E2C22;
     --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   }
 }
@@ -79,33 +79,33 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #1C1815;
-  --surface: #2A241D;
-  --text: #F5EFE6;
-  --text-muted: #BDB0A2;
-  --border: #4A4034;
+  --surface: #2E2820;
+  --text: #FDF8F0;
+  --text-muted: #CBBEAE;
+  --border: #564B3D;
   --chip-overlay: rgba(0, 0, 0, 0.28);
   --chip-overlay-strong: rgba(0, 0, 0, 0.16);
 
-  --primary: #F6B29F;
-  --primary-dark: #F09A82;
+  --primary: #F8BBA9;
+  --primary-dark: #F4A28D;
 
-  --card-peach: #55392A;
-  --card-peach-text: #FFD3B3;
-  --card-mint: #24402F;
-  --card-mint-text: #9EE8C0;
-  --card-sky: #253A48;
-  --card-sky-text: #A9DAF6;
-  --card-yellow: #453620;
-  --card-yellow-text: #FADD8F;
-  --card-lavender: #362E52;
-  --card-lavender-text: #D6C4F5;
-  --card-rose: #472B34;
-  --card-rose-text: #F6B9CC;
-  --card-teal: #1F4038;
-  --card-teal-text: #9CEBDD;
+  --card-peach: #5E4130;
+  --card-peach-text: #FFDCC0;
+  --card-mint: #27462F;
+  --card-mint-text: #B4F0CE;
+  --card-sky: #2A4356;
+  --card-sky-text: #BCE3FA;
+  --card-yellow: #4C3C22;
+  --card-yellow-text: #FCE6A8;
+  --card-lavender: #3C3459;
+  --card-lavender-text: #E1D3F8;
+  --card-rose: #503038;
+  --card-rose-text: #F9C9D8;
+  --card-teal: #234A40;
+  --card-teal-text: #AEF0E4;
 
-  --danger: #F3A08D;
-  --danger-bg: #48281F;
+  --danger: #F6AC9B;
+  --danger-bg: #4E2C22;
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
@@ -221,7 +221,7 @@ button.secondary {
 }
 .shopping-item.checked { opacity: 0.55; }
 .shopping-item.checked .item-name { text-decoration: line-through; }
-.item-name { flex: 1; }
+.item-name { flex: 1; color: var(--text); }
 .item-qty { color: var(--text-muted); font-size: 0.85rem; }
 .shopping-item button { width: auto; background: none; color: var(--text-muted); font-size: 1.1rem; }
 
@@ -407,7 +407,7 @@ button.secondary {
 .meal-slot {
   flex: 1; text-align: left; background: var(--bg); border: 1.5px dashed var(--border);
   border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; font-family: inherit;
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 2px; color: var(--text);
 }
 .meal-slot.is-filled { background: var(--card-teal); color: var(--card-teal-text); border: none; }
 .meal-slot-label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; }
@@ -446,7 +446,7 @@ button.secondary {
   background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 8px;
   box-shadow: var(--shadow);
 }
-.list-row-name { flex: 1; font-weight: 600; cursor: pointer; }
+.list-row-name { flex: 1; font-weight: 600; cursor: pointer; color: var(--text); }
 .list-row-delete {
   width: auto; background: none; border: none; color: var(--text-muted);
   font-size: 1.1rem; cursor: pointer; padding: 4px 8px;
