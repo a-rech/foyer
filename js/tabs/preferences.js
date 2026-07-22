@@ -11,6 +11,7 @@ import { getMyProfile, updateDisplayName, getHouseholdProfiles } from "../profil
 import { removeMember, renameHousehold } from "../household.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
+import { getStoredTheme, setTheme } from "../theme.js";
 
 let ctxRef = null;
 let members = [];
@@ -36,6 +37,16 @@ export async function mount(container, ctx) {
         <input id="display-name" value="${escapeHtml(profile?.display_name ?? "")}" />
         <button id="save-name" class="btn-primary">Enregistrer le nom</button>
         <p class="prefs-status" id="name-status"></p>
+      </section>
+
+      <section class="prefs-section card-yellow">
+        <h3>🎨 Apparence</h3>
+        <label class="field-label">Thème</label>
+        <div class="prefs-theme-toggle" id="theme-toggle">
+          <button type="button" data-theme-choice="light">☀️ Clair</button>
+          <button type="button" data-theme-choice="dark">🌙 Sombre</button>
+          <button type="button" data-theme-choice="auto">🖥️ Auto</button>
+        </div>
       </section>
 
       <section class="prefs-section card-sky">
@@ -85,6 +96,7 @@ export async function mount(container, ctx) {
 
   renderMembers();
   renderCacheVersion();
+  renderThemeToggle();
 
   document.getElementById("home-btn-prefs").addEventListener("click", () => goHome());
 
@@ -163,6 +175,21 @@ async function handleCheckForUpdate() {
   }
 }
 
+function renderThemeToggle() {
+  const wrap = document.getElementById("theme-toggle");
+  if (!wrap) return;
+
+  const current = getStoredTheme() || "auto";
+  wrap.querySelectorAll("button").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.themeChoice === current);
+    btn.addEventListener("click", () => {
+      const choice = btn.dataset.themeChoice;
+      setTheme(choice === "auto" ? null : choice);
+      wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === btn));
+    });
+  });
+}
+
 function showStatus(elId, message) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -176,21 +203,36 @@ function renderMembers() {
   const el = document.getElementById("members-list");
   if (!el) return;
 
+  const ownerId = ctxRef.household?.owner_id;
+  const isOwner = ownerId && ownerId === ctxRef.userId;
+
   if (members.length === 0) {
     el.innerHTML = `<p class="empty-state">Aucun membre.</p>`;
     return;
   }
 
   el.innerHTML = members
-    .map(
-      (m) => `
+    .map((m) => {
+      const isMe = m.user_id === ctxRef.userId;
+      const isMemberOwner = ownerId && m.user_id === ownerId;
+      const canRemove = isOwner && !isMe;
+      return `
     <div class="prefs-member-row" data-id="${m.user_id}">
-      <span class="prefs-member-name">${escapeHtml(m.display_name || "Sans nom")}${m.user_id === ctxRef.userId ? " (vous)" : ""}</span>
-      ${m.user_id !== ctxRef.userId ? `<button type="button" class="prefs-member-remove" data-action="remove">Retirer</button>` : ""}
+      <span class="prefs-member-name">
+        ${isMemberOwner ? "👑 " : ""}${escapeHtml(m.display_name || "Sans nom")}${isMe ? " (vous)" : ""}
+      </span>
+      ${canRemove ? `<button type="button" class="prefs-member-remove" data-action="remove">Retirer</button>` : ""}
     </div>
-  `
-    )
+  `;
+    })
     .join("");
+
+  if (!isOwner) {
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<p class="prefs-hint">👑 Seul le propriétaire du foyer peut retirer un membre.</p>`
+    );
+  }
 
   el.querySelectorAll('[data-action="remove"]').forEach((btn) => {
     btn.addEventListener("click", (e) => {

@@ -6,6 +6,14 @@
   <title>Foyer</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2563eb" />
+  <script>
+    // Applique le thème choisi (clair/sombre) avant le premier rendu, pour
+    // éviter un flash de thème clair au chargement quand le sombre est actif.
+    try {
+      var t = localStorage.getItem("foyer-theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>

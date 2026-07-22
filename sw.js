@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 32;
+const CACHE_VERSION = 33;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -10,6 +10,7 @@ const APP_SHELL = [
   "js/supabase-client.js",
   "js/auth.js",
   "js/household.js",
+  "js/theme.js",
   "js/profiles.js",
   "js/tasks.js",
   "js/meals.js",

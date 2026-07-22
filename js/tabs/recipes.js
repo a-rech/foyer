@@ -301,10 +301,18 @@ function openRecipeDetail(recipe) {
     <div class="list-detail">
       <button id="back-to-recipes" class="back-btn">‹ ${currentCategory.name}</button>
       <form id="recipe-form" class="recipe-form">
+        <label class="field-label" for="r-title">Titre</label>
         <input id="r-title" placeholder="Titre" value="${recipe?.title ?? ""}" required />
-        <textarea id="r-ingredients" placeholder="Ingrédients">${recipe?.ingredients ?? ""}</textarea>
-        <textarea id="r-instructions" placeholder="Préparation">${recipe?.instructions ?? ""}</textarea>
-        <textarea id="r-notes" placeholder="Notes perso (optionnel)">${recipe?.notes ?? ""}</textarea>
+
+        <label class="field-label" for="r-ingredients">🥕 Ingrédients</label>
+        <textarea id="r-ingredients" class="recipe-textarea-lg" placeholder="Un ingrédient par ligne…">${recipe?.ingredients ?? ""}</textarea>
+
+        <label class="field-label" for="r-instructions">👩‍🍳 Préparation</label>
+        <textarea id="r-instructions" class="recipe-textarea-lg" placeholder="Les étapes de préparation…">${recipe?.instructions ?? ""}</textarea>
+
+        <label class="field-label" for="r-notes">📝 Notes perso (optionnel)</label>
+        <textarea id="r-notes" placeholder="Une astuce, une variante…">${recipe?.notes ?? ""}</textarea>
+
         <button type="submit">Enregistrer</button>
       </form>
     </div>

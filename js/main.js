@@ -4,6 +4,7 @@ import { getMyHousehold, createHousehold, joinHousehold } from "./household.js";
 import { registerTab, initRouter } from "./router.js";
 import { initBadges } from "./badges.js";
 import { ensureProfile } from "./profiles.js";
+import { initTheme } from "./theme.js";
 
 import * as homeTab from "./tabs/home.js";
 import * as shoppingTab from "./tabs/shopping.js";
@@ -13,6 +14,8 @@ import * as notesTab from "./tabs/notes.js";
 import * as tasksTab from "./tabs/tasks.js";
 import * as mealsTab from "./tabs/meals.js";
 import * as preferencesTab from "./tabs/preferences.js";
+
+initTheme();
 
 const appEl = document.getElementById("app");
 

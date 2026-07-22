@@ -35,6 +35,71 @@
   --shadow: 0 4px 14px rgba(180, 140, 100, 0.12);
 }
 
+/* Thème sombre automatique (préférence système), sauf si l'utilisateur a
+   explicitement choisi "clair" dans les réglages */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1C1815;
+    --surface: #262019;
+    --text: #F1E9DE;
+    --text-muted: #B0A395;
+    --border: #3A322A;
+
+    --primary: #F4A896;
+    --primary-dark: #E88B76;
+
+    --card-peach: #4A3226;
+    --card-peach-text: #FFC9A8;
+    --card-mint: #21382E;
+    --card-mint-text: #8FDBB6;
+    --card-sky: #223440;
+    --card-sky-text: #9CD3F2;
+    --card-yellow: #3D3319;
+    --card-yellow-text: #F5D889;
+    --card-lavender: #302A47;
+    --card-lavender-text: #CBB8F0;
+    --card-rose: #3E2830;
+    --card-rose-text: #F3AFC4;
+    --card-teal: #1E3A36;
+    --card-teal-text: #8FE3D6;
+
+    --danger: #F0917E;
+    --danger-bg: #402521;
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Thème sombre choisi explicitement (prioritaire sur le système) */
+:root[data-theme="dark"] {
+  --bg: #1C1815;
+  --surface: #262019;
+  --text: #F1E9DE;
+  --text-muted: #B0A395;
+  --border: #3A322A;
+
+  --primary: #F4A896;
+  --primary-dark: #E88B76;
+
+  --card-peach: #4A3226;
+  --card-peach-text: #FFC9A8;
+  --card-mint: #21382E;
+  --card-mint-text: #8FDBB6;
+  --card-sky: #223440;
+  --card-sky-text: #9CD3F2;
+  --card-yellow: #3D3319;
+  --card-yellow-text: #F5D889;
+  --card-lavender: #302A47;
+  --card-lavender-text: #CBB8F0;
+  --card-rose: #3E2830;
+  --card-rose-text: #F3AFC4;
+  --card-teal: #1E3A36;
+  --card-teal-text: #8FE3D6;
+
+  --danger: #F0917E;
+  --danger-bg: #402521;
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -149,10 +214,14 @@ button.secondary {
   margin-bottom: 10px; box-shadow: var(--shadow);
 }
 .recipe-card summary { font-weight: 700; cursor: pointer; }
+.recipe-form .field-label { display: block; font-size: 0.82rem; color: var(--text-muted); margin: 14px 0 4px; }
+.recipe-form .field-label:first-of-type { margin-top: 4px; }
 .recipe-form textarea {
-  width: 100%; min-height: 60px; padding: 10px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); margin: 4px 0; font-family: inherit;
+  width: 100%; min-height: 60px; padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); margin: 4px 0; font-family: inherit; font-size: 1rem;
+  background: var(--surface); box-sizing: border-box; resize: vertical;
 }
+.recipe-form textarea.recipe-textarea-lg { min-height: 240px; line-height: 1.55; }
 
 .calendar-top-row { display: flex; gap: 8px; margin-bottom: 10px; }
 .calendar-top-row .home-btn { flex: 1; margin-bottom: 0; text-align: center; }
@@ -442,7 +511,7 @@ button.secondary {
 
 .tab-preferences input {
   width: 100%; padding: 13px 16px; margin: 4px 0; border-radius: 16px;
-  border: 1.5px solid rgba(0,0,0,0.08); font-size: 1rem; font-family: inherit; background: var(--surface);
+  border: 1.5px solid var(--border); font-size: 1rem; font-family: inherit; background: var(--surface);
   box-sizing: border-box;
 }
 .tab-preferences input:focus { outline: none; border-color: var(--primary); }
@@ -459,7 +528,7 @@ button.secondary {
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }
 
-.btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid rgba(0,0,0,0.1) !important; }
+.btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--border) !important; }
 .btn-secondary:hover { filter: brightness(0.97); }
 
 .btn-danger { background: var(--surface); color: var(--danger); border: 1.5px solid var(--danger) !important; }
@@ -483,7 +552,7 @@ button.secondary {
   padding: 12px; border-radius: 18px; background: var(--surface); margin: 6px 0 4px;
 }
 
-.prefs-member-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px; border-bottom: 1px solid rgba(0,0,0,0.07); }
+.prefs-member-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px; border-bottom: 1px solid var(--border); }
 .prefs-member-row:last-child { border-bottom: none; }
 .prefs-member-name { font-weight: 600; }
 .prefs-member-remove {
@@ -492,6 +561,7 @@ button.secondary {
   border-radius: 999px;
 }
 .prefs-member-remove:hover { background: var(--danger-bg); }
+.prefs-hint { font-size: 0.78rem; color: var(--text-muted); margin: 10px 0 0; text-align: center; }
 
 .prefs-version {
   text-align: center; color: var(--text-muted); font-size: 0.78rem;
@@ -499,3 +569,29 @@ button.secondary {
 }
 
 .info-toast { background: var(--card-mint-text); }
+
+/* Bloc "Aujourd'hui" sur l'accueil */
+.today-block {
+  border-radius: 24px; box-shadow: var(--shadow); background: var(--card-mint);
+  color: var(--card-mint-text); padding: 16px 18px 18px; margin-bottom: 18px;
+}
+.today-block h3 { margin: 0 0 10px; font-size: 1rem; }
+.today-block-body { display: flex; flex-direction: column; gap: 12px; }
+.today-group { cursor: pointer; }
+.today-group-title { display: block; font-weight: 800; font-size: 0.8rem; margin-bottom: 6px; }
+.today-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.today-chip {
+  background: rgba(255,255,255,0.55); padding: 5px 11px; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 600;
+}
+.today-chip-more { background: rgba(255,255,255,0.3); }
+.today-empty { margin: 0; font-size: 0.88rem; opacity: 0.85; }
+
+/* Sélecteur de thème (Réglages) */
+.prefs-theme-toggle { display: flex; gap: 6px; margin: 6px 0 2px; }
+.prefs-theme-toggle button {
+  flex: 1; width: auto; margin: 0; padding: 11px 6px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: 0.85rem; font-weight: 700; cursor: pointer;
+}
+.prefs-theme-toggle button.is-active { background: var(--primary); color: #fff; border-color: transparent; }

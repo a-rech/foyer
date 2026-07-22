@@ -4,7 +4,7 @@ import { supabase } from "./supabase-client.js";
 export async function getMyHousehold(userId) {
   const { data, error } = await supabase
     .from("household_members")
-    .select("household_id, households(id, name, invite_code)")
+    .select("household_id, households(id, name, invite_code, owner_id)")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -22,6 +22,14 @@ export async function createHousehold(name, userId) {
     household_name: name,
   });
   if (error) throw error;
+
+  // Le créateur devient propriétaire du foyer (colonne owner_id, cf. migration
+  // SQL). Fait ici plutôt que dans la RPC : à ce stade il est déjà membre,
+  // donc l'UPDATE passe la policy RLS sans avoir à toucher à la fonction RPC.
+  if (data?.id) {
+    await supabase.from("households").update({ owner_id: userId }).eq("id", data.id);
+    data.owner_id = userId;
+  }
   return data;
 }
 
