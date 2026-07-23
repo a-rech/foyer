@@ -7,6 +7,13 @@ const routes = {};
 let currentTab = null;
 let backActions = [];
 
+// Sur mobile, changer d'appli puis revenir peut faire recharger complètement
+// la page (le système décharge l'onglet en arrière-plan) — sans ça, on
+// atterrissait toujours sur l'accueil. sessionStorage survit à ce rechargement
+// forcé (mais pas à une fermeture réelle de l'onglet), ce qui correspond
+// exactement au cas qu'on veut couvrir.
+const LAST_TAB_KEY = "foyer-last-tab";
+
 // Enregistre un onglet : { mount(container), unmount() }
 export function registerTab(name, module) {
   routes[name] = module;
@@ -24,7 +31,23 @@ async function mountTab(tabName) {
   }
   container.innerHTML = "";
   currentTab = tabName;
+  try {
+    sessionStorage.setItem(LAST_TAB_KEY, tabName);
+  } catch {
+    // stockage indisponible (navigation privée...) : tant pis, pas de restauration
+  }
   await routes[tabName].mount(container);
+}
+
+// À appeler à la déconnexion : évite qu'un rechargement après ré-authentification
+// (potentiellement avec un autre compte, sur le même onglet de navigateur)
+// ne restaure l'onglet d'une session précédente.
+export function clearLastTab() {
+  try {
+    sessionStorage.removeItem(LAST_TAB_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 // Entrer dans un onglet depuis l'accueil : empile "retour à l'accueil"
@@ -83,6 +106,13 @@ window.addEventListener("popstate", () => {
 });
 
 export function initRouter(defaultTab) {
-  mountTab(defaultTab);
+  let startTab = defaultTab;
+  try {
+    const saved = sessionStorage.getItem(LAST_TAB_KEY);
+    if (saved && routes[saved]) startTab = saved;
+  } catch {
+    // stockage indisponible : on démarre simplement sur l'onglet par défaut
+  }
+  mountTab(startTab);
   history.replaceState({ depth: 0 }, "");
 }

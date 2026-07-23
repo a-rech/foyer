@@ -6,7 +6,7 @@ import {
   unsubscribeFromPush,
 } from "../notifications.js";
 import { signOut } from "../auth.js";
-import { goHome } from "../router.js";
+import { goHome, clearLastTab } from "../router.js";
 import { getMyProfile, updateDisplayName, getHouseholdProfiles } from "../profiles.js";
 import { removeMember, renameHousehold } from "../household.js";
 import { showUndoToast } from "../utils/toast.js";
@@ -122,6 +122,7 @@ export async function mount(container, ctx) {
   document.getElementById("prefs-check-update").addEventListener("click", handleCheckForUpdate);
 
   document.getElementById("prefs-logout").addEventListener("click", async () => {
+    clearLastTab();
     await signOut();
     location.reload();
   });

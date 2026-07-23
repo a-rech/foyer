@@ -297,21 +297,24 @@ function openRecipeDetail(recipe) {
 
   pushView(() => renderCategoryScreen(currentCategory));
 
+  const draft = recipe ? null : loadDraft(currentCategory.id);
+
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-recipes" class="back-btn">‹ ${currentCategory.name}</button>
+      ${draft ? `<p class="prefs-hint">📝 Brouillon restauré. <button type="button" id="discard-draft-btn" class="link-btn">Effacer le brouillon</button></p>` : ""}
       <form id="recipe-form" class="recipe-form">
         <label class="field-label" for="r-title">Titre</label>
-        <input id="r-title" placeholder="Titre" value="${recipe?.title ?? ""}" required />
+        <input id="r-title" placeholder="Titre" value="${recipe?.title ?? draft?.title ?? ""}" required />
 
         <label class="field-label" for="r-ingredients">🥕 Ingrédients</label>
-        <textarea id="r-ingredients" class="recipe-textarea-lg" placeholder="Un ingrédient par ligne…">${recipe?.ingredients ?? ""}</textarea>
+        <textarea id="r-ingredients" class="recipe-textarea-lg" placeholder="Un ingrédient par ligne…">${recipe?.ingredients ?? draft?.ingredients ?? ""}</textarea>
 
         <label class="field-label" for="r-instructions">👩‍🍳 Préparation</label>
-        <textarea id="r-instructions" class="recipe-textarea-lg" placeholder="Les étapes de préparation…">${recipe?.instructions ?? ""}</textarea>
+        <textarea id="r-instructions" class="recipe-textarea-lg" placeholder="Les étapes de préparation…">${recipe?.instructions ?? draft?.instructions ?? ""}</textarea>
 
         <label class="field-label" for="r-notes">📝 Notes perso (optionnel)</label>
-        <textarea id="r-notes" placeholder="Une astuce, une variante…">${recipe?.notes ?? ""}</textarea>
+        <textarea id="r-notes" placeholder="Une astuce, une variante…">${recipe?.notes ?? draft?.notes ?? ""}</textarea>
 
         <button type="submit">Enregistrer</button>
       </form>
@@ -320,6 +323,56 @@ function openRecipeDetail(recipe) {
 
   document.getElementById("back-to-recipes").addEventListener("click", () => goBack());
   document.getElementById("recipe-form").addEventListener("submit", handleSaveRecipe);
+  document.getElementById("discard-draft-btn")?.addEventListener("click", () => {
+    clearDraft(currentCategory.id);
+    openRecipeDetail(null);
+  });
+
+  // Sauvegarde continue du brouillon pendant la saisie (uniquement en création,
+  // pas en édition d'une recette existante) : si l'appli est rechargée de force
+  // (changement d'appli sur mobile, etc.), le travail en cours n'est pas perdu.
+  if (!recipe) {
+    ["r-title", "r-ingredients", "r-instructions", "r-notes"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => saveDraft(currentCategory.id));
+    });
+  }
+}
+
+function draftStorageKey(categoryId) {
+  return `foyer-recipe-draft:${categoryId}`;
+}
+
+function saveDraft(categoryId) {
+  const draft = {
+    title: document.getElementById("r-title")?.value ?? "",
+    ingredients: document.getElementById("r-ingredients")?.value ?? "",
+    instructions: document.getElementById("r-instructions")?.value ?? "",
+    notes: document.getElementById("r-notes")?.value ?? "",
+  };
+  const isEmpty = !draft.title && !draft.ingredients && !draft.instructions && !draft.notes;
+  try {
+    if (isEmpty) localStorage.removeItem(draftStorageKey(categoryId));
+    else localStorage.setItem(draftStorageKey(categoryId), JSON.stringify(draft));
+  } catch {
+    // stockage indisponible (navigation privée...) : tant pis, pas de brouillon
+  }
+}
+
+function loadDraft(categoryId) {
+  try {
+    const raw = localStorage.getItem(draftStorageKey(categoryId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft(categoryId) {
+  try {
+    localStorage.removeItem(draftStorageKey(categoryId));
+  } catch {
+    // ignore
+  }
 }
 
 async function handleSaveRecipe(e) {
@@ -340,6 +393,7 @@ async function handleSaveRecipe(e) {
       created_by: currentUserId,
       ...values,
     });
+    clearDraft(currentCategory.id);
   }
 
   goBack();
