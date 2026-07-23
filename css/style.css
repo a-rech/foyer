@@ -562,6 +562,7 @@ button.secondary {
 .prefs-quiet-hours input[type="time"] { width: auto; flex: 1; min-width: 100px; }
 
 .prefs-status { font-size: 0.82rem; color: var(--card-mint-text); margin: 6px 0 0; min-height: 1.1em; font-weight: 600; text-align: center; }
+.prefs-notif-active { font-weight: 700; text-align: center; margin: 4px 0 10px; }
 
 .prefs-invite-code {
   font-size: 1.4rem; font-weight: 800; letter-spacing: 3px; text-align: center;

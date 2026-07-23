@@ -51,21 +51,15 @@ export async function mount(container, ctx) {
 
       <section class="prefs-section card-sky">
         <h3>🔔 Notifications</h3>
-        <label class="prefs-checkbox-row">
-          <input type="checkbox" id="notif-enabled" ${prefs.notifications_enabled ? "checked" : ""} />
-          Activer les notifications
-        </label>
+        <div id="notif-status-block"></div>
 
-        <label class="field-label">Plage silencieuse</label>
+        <label class="field-label">Plage silencieuse (optionnel)</label>
         <div class="prefs-quiet-hours">
           <input type="time" id="quiet-start" value="${prefs.quiet_start || ""}" />
           <span>à</span>
           <input type="time" id="quiet-end" value="${prefs.quiet_end || ""}" />
         </div>
-
-        <button id="save-prefs" class="btn-primary">Enregistrer</button>
-        <button id="prefs-request-permission" class="btn-secondary">🔔 Activer sur cet appareil</button>
-        <button id="prefs-disable-notif" class="btn-danger">🔕 Désactiver totalement les notifications</button>
+        <button id="save-quiet-hours" class="btn-secondary">Enregistrer la plage silencieuse</button>
         <p class="prefs-status" id="notif-status"></p>
       </section>
 
@@ -97,6 +91,7 @@ export async function mount(container, ctx) {
   renderMembers();
   renderCacheVersion();
   renderThemeToggle();
+  renderNotifStatusBlock(prefs);
 
   document.getElementById("home-btn-prefs").addEventListener("click", () => goHome());
 
@@ -107,42 +102,13 @@ export async function mount(container, ctx) {
     showStatus("name-status", "Nom enregistré ✓");
   });
 
-  document.getElementById("save-prefs").addEventListener("click", async () => {
+  document.getElementById("save-quiet-hours").addEventListener("click", async () => {
     await savePreferences(ctx.userId, {
-      notifications_enabled: document.getElementById("notif-enabled").checked,
+      notifications_enabled: prefs.notifications_enabled,
       quiet_start: document.getElementById("quiet-start").value || null,
       quiet_end: document.getElementById("quiet-end").value || null,
     });
-    showStatus("notif-status", "Préférences enregistrées ✓");
-  });
-
-  document.getElementById("prefs-request-permission").addEventListener("click", async () => {
-    const result = await requestNotificationPermission();
-    if (result !== "granted") {
-      showStatus("notif-status", "Notifications refusées ou non supportées.");
-      return;
-    }
-    try {
-      await subscribeToPush(ctx.userId);
-      showStatus("notif-status", "Notifications activées sur cet appareil ✓");
-    } catch (err) {
-      showStatus("notif-status", "Erreur lors de l'activation : " + err.message);
-    }
-  });
-
-  document.getElementById("prefs-disable-notif").addEventListener("click", async () => {
-    document.getElementById("notif-enabled").checked = false;
-    await savePreferences(ctx.userId, {
-      notifications_enabled: false,
-      quiet_start: document.getElementById("quiet-start").value || null,
-      quiet_end: document.getElementById("quiet-end").value || null,
-    });
-    try {
-      await unsubscribeFromPush();
-    } catch {
-      // Pas grave si aucun abonnement actif sur cet appareil
-    }
-    showStatus("notif-status", "Notifications désactivées sur ce compte et cet appareil.");
+    showStatus("notif-status", "Plage silencieuse enregistrée ✓");
   });
 
   document.getElementById("save-household-name").addEventListener("click", async () => {
@@ -200,6 +166,76 @@ function renderThemeToggle() {
       wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === btn));
     });
   });
+}
+
+// Un seul bloc qui reflète l'état réel (préférence en base ET abonnement
+// navigateur), avec une seule action qui fait tout d'un coup : demande de
+// permission + abonnement push + enregistrement de la préférence. Avant, il
+// fallait cocher une case ET cliquer "Activer sur cet appareil" ET penser à
+// "Enregistrer" séparément — source d'oublis.
+async function renderNotifStatusBlock(prefs) {
+  const el = document.getElementById("notif-status-block");
+  if (!el) return;
+
+  const hasDeviceSubscription = await getHasActiveSubscription();
+  const isActive = !!prefs.notifications_enabled && hasDeviceSubscription;
+
+  if (isActive) {
+    el.innerHTML = `
+      <p class="prefs-notif-active">✅ Notifications activées sur cet appareil</p>
+      <button id="prefs-disable-notif" class="btn-danger">🔕 Désactiver les notifications</button>
+    `;
+    document.getElementById("prefs-disable-notif").addEventListener("click", async () => {
+      try {
+        await unsubscribeFromPush();
+      } catch {
+        // Pas grave si aucun abonnement actif sur cet appareil
+      }
+      await savePreferences(ctxRef.userId, {
+        notifications_enabled: false,
+        quiet_start: document.getElementById("quiet-start").value || null,
+        quiet_end: document.getElementById("quiet-end").value || null,
+      });
+      prefs.notifications_enabled = false;
+      showStatus("notif-status", "Notifications désactivées sur ce compte et cet appareil.");
+      renderNotifStatusBlock(prefs);
+    });
+  } else {
+    el.innerHTML = `<button id="prefs-enable-notif" class="btn-primary">🔔 Activer les notifications</button>`;
+    document.getElementById("prefs-enable-notif").addEventListener("click", async () => {
+      showStatus("notif-status", "Activation en cours...");
+      const result = await requestNotificationPermission();
+      if (result !== "granted") {
+        showStatus("notif-status", "Permission refusée dans le navigateur.");
+        return;
+      }
+      try {
+        await subscribeToPush(ctxRef.userId);
+        await savePreferences(ctxRef.userId, {
+          notifications_enabled: true,
+          quiet_start: document.getElementById("quiet-start").value || null,
+          quiet_end: document.getElementById("quiet-end").value || null,
+        });
+        prefs.notifications_enabled = true;
+        showStatus("notif-status", "Notifications activées ✓");
+        renderNotifStatusBlock(prefs);
+      } catch (err) {
+        showStatus("notif-status", "Erreur lors de l'activation : " + err.message);
+      }
+    });
+  }
+}
+
+async function getHasActiveSubscription() {
+  try {
+    if (!("serviceWorker" in navigator)) return false;
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return false;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub;
+  } catch {
+    return false;
+  }
 }
 
 function showStatus(elId, message) {
