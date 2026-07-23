@@ -23,6 +23,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 Deno.serve(async (req) => {
   // Protection simple : seul un appel connaissant le secret peut déclencher l'envoi
   if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    console.log("Rejeté : x-cron-secret manquant ou incorrect");
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -37,8 +38,11 @@ Deno.serve(async (req) => {
     .lte("start_at", horizon.toISOString());
 
   if (error) {
+    console.log("Erreur lecture events :", error.message);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
+
+  console.log(`${events?.length ?? 0} événement(s) à venir dans les ${LOOKAHEAD_DAYS} jours`);
 
   let sentCount = 0;
 
@@ -58,12 +62,18 @@ Deno.serve(async (req) => {
         .eq("event_id", event.id)
         .eq("reminder_key", reminderKey)
         .maybeSingle();
-      if (already) continue;
+      if (already) {
+        console.log(`"${event.title}" (${reminderKey}) déjà envoyé, ignoré`);
+        continue;
+      }
 
+      console.log(`Envoi du rappel "${event.title}" (${reminderKey})`);
       await notifyHousehold(event, reminder, reminderKey);
       sentCount++;
     }
   }
+
+  console.log(`Terminé : ${sentCount} rappel(s) envoyé(s)`);
 
   return new Response(JSON.stringify({ ok: true, sent: sentCount }), {
     headers: { "Content-Type": "application/json" },
@@ -94,15 +104,24 @@ async function notifyHousehold(event: any, reminder: any, reminderKey: string) {
       .eq("user_id", member.user_id)
       .maybeSingle();
 
-    if (prefs?.notifications_enabled === false) continue;
-    if (isQuietHours(prefs?.quiet_start, prefs?.quiet_end)) continue;
+    if (prefs?.notifications_enabled === false) {
+      console.log(`Membre ${member.user_id} : notifications désactivées, ignoré`);
+      continue;
+    }
+    if (isQuietHours(prefs?.quiet_start, prefs?.quiet_end)) {
+      console.log(`Membre ${member.user_id} : plage silencieuse active, ignoré`);
+      continue;
+    }
 
     const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("user_id", member.user_id);
+    console.log(`Membre ${member.user_id} : ${subs?.length ?? 0} abonnement(s) push`);
 
     for (const sub of subs ?? []) {
       try {
         await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+        console.log(`Push envoyé à ${member.user_id} (${sub.endpoint.slice(0, 40)}...)`);
       } catch (err: any) {
+        console.log(`Échec push pour ${member.user_id} : statusCode=${err.statusCode} ${err.body ?? err.message ?? ""}`);
         // Abonnement expiré ou invalide : on le retire pour ne plus réessayer
         if (err.statusCode === 404 || err.statusCode === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
