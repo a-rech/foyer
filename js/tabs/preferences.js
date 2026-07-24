@@ -9,9 +9,18 @@ import { signOut } from "../auth.js";
 import { goHome, clearLastTab } from "../router.js";
 import { getMyProfile, updateDisplayName, getHouseholdProfiles } from "../profiles.js";
 import { removeMember, renameHousehold } from "../household.js";
-import { showUndoToast } from "../utils/toast.js";
+import { showUndoToast, showInfoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 import { getStoredTheme, setTheme } from "../theme.js";
+import {
+  getGoogleConnection,
+  startGoogleConnection,
+  disconnectGoogleCalendar,
+  listGoogleCalendars,
+  createDedicatedGoogleCalendar,
+  setGoogleCalendarChoice,
+  setGoogleSyncEnabled,
+} from "../googleCalendar.js";
 
 let ctxRef = null;
 let members = [];
@@ -77,6 +86,12 @@ export async function mount(container, ctx) {
         <div id="members-list"></div>
       </section>
 
+      <section class="prefs-section card-teal">
+        <h3>🗓️ Google Agenda</h3>
+        <div id="google-calendar-block">Chargement...</div>
+        <p class="prefs-status" id="google-calendar-status"></p>
+      </section>
+
       <section class="prefs-section card-rose">
         <h3>🔐 Compte</h3>
         <button id="prefs-check-update" class="btn-secondary">🔄 Vérifier les mises à jour</button>
@@ -92,6 +107,8 @@ export async function mount(container, ctx) {
   renderCacheVersion();
   renderThemeToggle();
   renderNotifStatusBlock(prefs);
+  handleGoogleRedirectResult();
+  renderGoogleCalendarBlock();
 
   document.getElementById("home-btn-prefs").addEventListener("click", () => goHome());
 
@@ -237,6 +254,139 @@ async function getHasActiveSubscription() {
   } catch {
     return false;
   }
+}
+
+// Lit le paramètre ?google_calendar=connected|error laissé par la redirection
+// de retour de google-oauth-callback, affiche un toast, puis nettoie l'URL
+// pour qu'un rechargement de page ne réaffiche pas le message.
+function handleGoogleRedirectResult() {
+  const params = new URLSearchParams(location.search);
+  const status = params.get("google_calendar");
+  if (!status) return;
+  history.replaceState({}, "", location.pathname);
+
+  if (status === "connected") {
+    showInfoToast("Compte Google connecté ✓");
+  } else if (status === "error") {
+    showInfoToast("Échec de la connexion à Google Agenda.");
+  }
+}
+
+async function renderGoogleCalendarBlock() {
+  const el = document.getElementById("google-calendar-block");
+  if (!el) return;
+
+  let connection = null;
+  try {
+    connection = await getGoogleConnection(ctxRef.userId);
+  } catch (err) {
+    el.innerHTML = `<p class="prefs-hint">Erreur de chargement : ${escapeHtml(err.message)}</p>`;
+    return;
+  }
+
+  if (!connection) {
+    el.innerHTML = `
+      <p class="prefs-hint">Connectez votre compte Google pour synchroniser vos événements Foyer avec votre agenda personnel.</p>
+      <button id="google-connect" class="btn-primary">🔗 Connecter Google Agenda</button>
+    `;
+    document.getElementById("google-connect").addEventListener("click", async () => {
+      try {
+        await startGoogleConnection();
+      } catch (err) {
+        showStatus("google-calendar-status", "Erreur : " + err.message);
+      }
+    });
+    return;
+  }
+
+  const calendarLabel = connection.calendar_summary || (connection.calendar_id === "primary" ? "Agenda principal" : connection.calendar_id);
+
+  el.innerHTML = `
+    <p class="prefs-google-account">✅ Connecté${connection.google_email ? ` en tant que ${escapeHtml(connection.google_email)}` : ""}</p>
+
+    <label class="field-label" for="google-calendar-select">Calendrier synchronisé</label>
+    <select id="google-calendar-select">
+      <option value="__loading__">${escapeHtml(calendarLabel)}</option>
+    </select>
+
+    <label class="prefs-checkbox-row">
+      <input type="checkbox" id="google-sync-toggle" ${connection.sync_enabled ? "checked" : ""} />
+      Activer la synchronisation
+    </label>
+
+    <button id="google-disconnect" class="btn-danger">Déconnecter</button>
+  `;
+
+  document.getElementById("google-sync-toggle").addEventListener("change", async (e) => {
+    try {
+      await setGoogleSyncEnabled(ctxRef.userId, e.target.checked);
+      showStatus("google-calendar-status", e.target.checked ? "Synchronisation activée ✓" : "Synchronisation désactivée");
+    } catch (err) {
+      e.target.checked = !e.target.checked;
+      showStatus("google-calendar-status", "Erreur : " + err.message);
+    }
+  });
+
+  document.getElementById("google-disconnect").addEventListener("click", () => {
+    showUndoToast({
+      message: "Compte Google déconnecté",
+      onUndo: () => renderGoogleCalendarBlock(),
+      onConfirm: async () => {
+        try {
+          await disconnectGoogleCalendar(ctxRef.userId);
+        } catch (err) {
+          showStatus("google-calendar-status", "Erreur : " + err.message);
+        }
+        renderGoogleCalendarBlock();
+      },
+    });
+  });
+
+  populateGoogleCalendarSelect(connection);
+}
+
+const CREATE_DEDICATED_VALUE = "__create_dedicated__";
+
+async function populateGoogleCalendarSelect(connection) {
+  const select = document.getElementById("google-calendar-select");
+  if (!select) return;
+
+  let calendars = [];
+  try {
+    calendars = await listGoogleCalendars();
+  } catch (err) {
+    showStatus("google-calendar-status", "Erreur : " + err.message);
+    return;
+  }
+
+  select.innerHTML =
+    calendars
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.id)}" ${c.id === connection.calendar_id ? "selected" : ""}>${escapeHtml(
+            c.summary
+          )}${c.primary ? " (principal)" : ""}</option>`
+      )
+      .join("") +
+    `<option value="${CREATE_DEDICATED_VALUE}">+ Créer un calendrier dédié « Foyer »</option>`;
+
+  select.addEventListener("change", async () => {
+    const value = select.value;
+    try {
+      if (value === CREATE_DEDICATED_VALUE) {
+        const created = await createDedicatedGoogleCalendar("Foyer");
+        await setGoogleCalendarChoice(ctxRef.userId, created.id, created.summary);
+        showStatus("google-calendar-status", "Calendrier « Foyer » créé et sélectionné ✓");
+      } else {
+        const chosen = calendars.find((c) => c.id === value);
+        await setGoogleCalendarChoice(ctxRef.userId, value, chosen?.summary ?? value);
+        showStatus("google-calendar-status", "Calendrier sélectionné ✓");
+      }
+    } catch (err) {
+      showStatus("google-calendar-status", "Erreur : " + err.message);
+    }
+    renderGoogleCalendarBlock();
+  });
 }
 
 function showStatus(elId, message) {

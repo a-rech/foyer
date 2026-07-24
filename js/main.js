@@ -1,7 +1,7 @@
 import { supabase } from "./supabase-client.js";
 import { signIn, signUp, getCurrentUser, onAuthChange } from "./auth.js";
 import { getMyHousehold, createHousehold, joinHousehold } from "./household.js";
-import { registerTab, initRouter } from "./router.js";
+import { registerTab, initRouter, forceNextTab } from "./router.js";
 import { initBadges } from "./badges.js";
 import { ensureProfile } from "./profiles.js";
 import { initTheme } from "./theme.js";
@@ -127,6 +127,13 @@ function renderAppShell(user, household) {
   registerTab("tasks", { mount: (c) => tasksTab.mount(c, ctx), unmount: tasksTab.unmount });
   registerTab("meals", { mount: (c) => mealsTab.mount(c, ctx), unmount: mealsTab.unmount });
   registerTab("preferences", { mount: (c) => preferencesTab.mount(c, ctx), unmount: preferencesTab.unmount });
+
+  // Retour de la redirection OAuth Google (voir googleCalendar.js +
+  // supabase/functions/google-oauth-callback) : on force le démarrage sur
+  // Préférences, qui lit elle-même le paramètre pour afficher le résultat.
+  if (new URLSearchParams(location.search).has("google_calendar")) {
+    forceNextTab("preferences");
+  }
 
   initRouter("home");
   initBadges(ctx.householdId, ctx.userId);

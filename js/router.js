@@ -50,6 +50,18 @@ export function clearLastTab() {
   }
 }
 
+// Force l'onglet sur lequel démarrera le prochain initRouter(), en réutilisant
+// le même mécanisme que la restauration après rechargement forcé par l'OS.
+// Utilisé après un retour de redirection externe (ex. OAuth Google) pour
+// atterrir directement sur le bon onglet plutôt que sur l'accueil.
+export function forceNextTab(tabName) {
+  try {
+    sessionStorage.setItem(LAST_TAB_KEY, tabName);
+  } catch {
+    // stockage indisponible : tant pis, on démarrera sur l'onglet par défaut
+  }
+}
+
 // Entrer dans un onglet depuis l'accueil : empile "retour à l'accueil"
 export async function enterTab(tabName) {
   backActions.push(() => mountTab("home"));
