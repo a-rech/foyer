@@ -4,6 +4,7 @@ import { markTabSeen, getLastSeenMap, shouldShowBadge } from "../badges.js";
 import { goHome, pushView, goBack } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
+import { COLOR_CYCLE, randomTileColor } from "../utils/tileBoard.js";
 
 let unsubscribe = null;
 let notes = [];
@@ -88,6 +89,7 @@ async function handleAdd(e) {
     created_by: currentUserId,
     position: notes.length,
     favorite: false,
+    color: randomTileColor(),
   };
 
   // Affichage optimiste immédiat (corrige l'absence d'affichage à la création)
@@ -120,13 +122,19 @@ function renderBoard() {
   board.innerHTML = visible
     .map(
       (n) => `
-    <div class="note-card" data-id="${n.id}">
+    <div class="note-card ${n.color || "card-yellow"}" data-id="${n.id}">
       ${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
       <div class="note-card-header">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
-        <button class="favorite-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
-          ${n.favorite ? "⭐" : "☆"}
-        </button>
+        <div class="note-card-actions">
+          <button class="favorite-btn" data-action="color" aria-label="Changer la couleur">🎨</button>
+          <button class="favorite-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
+            ${n.favorite ? "⭐" : "☆"}
+          </button>
+        </div>
+      </div>
+      <div class="tile-color-picker" hidden>
+        ${COLOR_CYCLE.map((c) => `<button type="button" class="tile-color-swatch ${c}" data-color="${c}" aria-label="Couleur"></button>`).join("")}
       </div>
       <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
     </div>
@@ -146,9 +154,33 @@ function renderBoard() {
       handleToggleFavorite(e.target.closest(".note-card").dataset.id);
     });
   });
+  board.querySelectorAll('[data-action="color"]').forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const picker = el.closest(".note-card").querySelector(".tile-color-picker");
+      const wasHidden = picker.hidden;
+      board.querySelectorAll(".tile-color-picker").forEach((p) => (p.hidden = true));
+      picker.hidden = !wasHidden;
+    });
+  });
+  board.querySelectorAll(".tile-color-swatch").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = el.closest(".note-card").dataset.id;
+      handleChangeNoteColor(id, el.dataset.color);
+    });
+  });
   board.querySelectorAll(".drag-handle").forEach((el) => {
     el.addEventListener("pointerdown", onDragHandlePointerDown);
   });
+}
+
+async function handleChangeNoteColor(id, color) {
+  const note = notes.find((n) => n.id === id);
+  if (!note) return;
+  note.color = color;
+  renderBoard();
+  await supabase.from("notes").update({ color }).eq("id", id);
 }
 
 // Une note est "nouvelle" si un AUTRE membre du foyer l'a ajoutée après notre dernière visite

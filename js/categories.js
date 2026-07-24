@@ -1,4 +1,5 @@
 import { supabase } from "./supabase-client.js";
+import { randomTileColor } from "./utils/tileBoard.js";
 
 export async function getCategories(householdId) {
   const { data, error } = await supabase
@@ -19,7 +20,7 @@ export async function createCategory(householdId, name, userId) {
 
   const { data, error } = await supabase
     .from("recipe_categories")
-    .insert({ household_id: householdId, name, created_by: userId, position: count ?? 0 })
+    .insert({ household_id: householdId, name, created_by: userId, position: count ?? 0, color: randomTileColor() })
     .select()
     .single();
   if (error) throw error;
@@ -29,6 +30,12 @@ export async function createCategory(householdId, name, userId) {
 // Persiste la nouvelle position d'une catégorie après réordonnancement par glisser-déposer
 export async function updateCategoryPosition(id, position) {
   const { error } = await supabase.from("recipe_categories").update({ position }).eq("id", id);
+  if (error) throw error;
+}
+
+// Persiste la couleur choisie manuellement sur la tuile
+export async function updateCategoryColor(id, color) {
+  const { error } = await supabase.from("recipe_categories").update({ color }).eq("id", id);
   if (error) throw error;
 }
 
@@ -62,7 +69,7 @@ export async function createRecipe(payload) {
 
   const { data, error } = await supabase
     .from("recipes")
-    .insert({ ...payload, position: count ?? 0 })
+    .insert({ ...payload, position: count ?? 0, color: randomTileColor() })
     .select()
     .single();
   if (error) throw error;
@@ -72,6 +79,12 @@ export async function createRecipe(payload) {
 // Persiste la nouvelle position d'une recette après réordonnancement par glisser-déposer
 export async function updateRecipePosition(id, position) {
   const { error } = await supabase.from("recipes").update({ position }).eq("id", id);
+  if (error) throw error;
+}
+
+// Persiste la couleur choisie manuellement sur la tuile
+export async function updateRecipeColor(id, color) {
+  const { error } = await supabase.from("recipes").update({ color }).eq("id", id);
   if (error) throw error;
 }
 

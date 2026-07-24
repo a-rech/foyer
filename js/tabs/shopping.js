@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { subscribeToTable, writeOrQueue } from "../sync.js";
 import { markTabSeen, getLastSeenMap, computeUnseenIds } from "../badges.js";
-import { getLists, createList, deleteList, renameList, getItemsForList, updateListPosition } from "../lists.js";
+import { getLists, createList, deleteList, renameList, getItemsForList, updateListPosition, updateListColor } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
 import { renderTileBoard } from "../utils/tileBoard.js";
@@ -90,12 +90,20 @@ function renderLists() {
   renderTileBoard(el, visible, {
     getId: (l) => l.id,
     getLabel: (l) => l.name,
+    getColor: (l) => l.color,
     emptyMessage: "Aucune liste pour l'instant.",
     isNew: (list) => unseenListIds.has(list.id),
     onOpen: (list) => openList(list),
     onDelete: (list) => handleDeleteList(list.id),
+    onColorChange: handleChangeListColor,
     onReorder: handleReorderLists,
   });
+}
+
+async function handleChangeListColor(list, color) {
+  list.color = color;
+  renderLists();
+  await updateListColor(list.id, color);
 }
 
 async function handleReorderLists(orderedIds) {

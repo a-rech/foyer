@@ -1,4 +1,5 @@
 import { supabase } from "./supabase-client.js";
+import { randomTileColor } from "./utils/tileBoard.js";
 
 export async function getLists(householdId) {
   const { data, error } = await supabase
@@ -19,7 +20,7 @@ export async function createList(householdId, name, userId) {
 
   const { data, error } = await supabase
     .from("shopping_lists")
-    .insert({ household_id: householdId, name, created_by: userId, position: count ?? 0 })
+    .insert({ household_id: householdId, name, created_by: userId, position: count ?? 0, color: randomTileColor() })
     .select()
     .single();
   if (error) throw error;
@@ -29,6 +30,12 @@ export async function createList(householdId, name, userId) {
 // Persiste la nouvelle position d'une liste après réordonnancement par glisser-déposer
 export async function updateListPosition(id, position) {
   const { error } = await supabase.from("shopping_lists").update({ position }).eq("id", id);
+  if (error) throw error;
+}
+
+// Persiste la couleur choisie manuellement sur la tuile
+export async function updateListColor(id, color) {
+  const { error } = await supabase.from("shopping_lists").update({ color }).eq("id", id);
   if (error) throw error;
 }
 

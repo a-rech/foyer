@@ -352,10 +352,10 @@ button.secondary {
   cursor: grab; touch-action: none; font-size: 1.1rem; opacity: 0.6;
   padding: 4px 6px; user-select: none;
 }
+.note-card-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
 .favorite-btn {
   width: auto; background: none; border: none; font-size: 1.1rem;
   cursor: pointer; padding: 2px 4px; opacity: 0.6;
-  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
 }
 .favorite-btn.is-favorite { opacity: 1; }
 .note-card-content {
@@ -440,6 +440,18 @@ button.secondary {
   border: 1.5px solid var(--border); font-size: 0.9rem; font-family: inherit; background: var(--surface);
 }
 .tile-inline-rename button { width: auto; margin: 0; padding: 8px 12px; border-radius: var(--radius-sm); }
+
+.tile-color-picker {
+  position: absolute; top: 36px; right: 8px; z-index: 5;
+  background: var(--surface); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 8px; display: flex; flex-wrap: wrap; gap: 7px; width: 112px;
+}
+.tile-color-picker[hidden] { display: none; }
+.tile-color-swatch {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; padding: 0;
+}
+.tile-color-swatch:hover, .tile-color-swatch:focus-visible { border-color: var(--text); outline: none; }
 
 .list-row {
   display: flex; align-items: center; gap: 10px; padding: 14px 16px;

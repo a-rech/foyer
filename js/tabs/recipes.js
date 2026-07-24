@@ -15,7 +15,9 @@ import {
   updateRecipe,
   deleteRecipe,
   updateCategoryPosition,
+  updateCategoryColor,
   updateRecipePosition,
+  updateRecipeColor,
 } from "../categories.js";
 
 let unsubscribeCategories = null;
@@ -105,11 +107,19 @@ function renderCategories() {
   renderTileBoard(el, visible, {
     getId: (c) => c.id,
     getLabel: (c) => c.name,
+    getColor: (c) => c.color,
     emptyMessage: "Aucune catégorie pour l'instant.",
     isNew: (cat) => unseenCategoryIds.has(cat.id),
     onOpen: (cat) => openCategory(cat),
+    onColorChange: handleChangeCategoryColor,
     onReorder: handleReorderCategories,
   });
+}
+
+async function handleChangeCategoryColor(category, color) {
+  category.color = color;
+  renderCategories();
+  await updateCategoryColor(category.id, color);
 }
 
 async function handleReorderCategories(orderedIds) {
@@ -247,12 +257,20 @@ function renderRecipes() {
   renderTileBoard(el, visible, {
     getId: (r) => r.id,
     getLabel: (r) => r.title,
+    getColor: (r) => r.color,
     emptyMessage: "Aucune recette dans cette catégorie.",
     isNew: (recipe) => recipe.created_by !== currentUserId && shouldShowBadge(recipe.created_at, recipesLastSeenAt),
     onOpen: (recipe) => openRecipeDetail(recipe),
     onDelete: (recipe) => handleDeleteRecipe(recipe.id),
+    onColorChange: handleChangeRecipeColor,
     onReorder: handleReorderRecipes,
   });
+}
+
+async function handleChangeRecipeColor(recipe, color) {
+  recipe.color = color;
+  renderRecipes();
+  await updateRecipeColor(recipe.id, color);
 }
 
 async function handleReorderRecipes(orderedIds) {
