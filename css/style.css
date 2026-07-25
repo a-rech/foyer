@@ -295,6 +295,7 @@ button.secondary {
 }
 .hour-event.all-day-event { background: var(--card-yellow); color: var(--card-yellow-text); }
 .hour-event-end { font-size: 0.72rem; opacity: 0.7; font-weight: 400; }
+.hour-event-location { display: block; font-size: 0.72rem; opacity: 0.7; font-weight: 400; margin-top: 2px; }
 #add-event-btn { width: auto; margin-bottom: 14px; padding: 10px 16px; }
 
 /* Formulaire d'événement : un champ par ligne, texte et zones agrandis */
@@ -595,6 +596,8 @@ button.secondary {
 .prefs-checkbox-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.92rem; }
 .prefs-checkbox-row input[type="checkbox"] { width: auto; }
 .prefs-google-account { font-size: 0.88rem; font-weight: 600; margin: 0 0 10px; }
+.prefs-sync-status { font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 10px; }
+.prefs-sync-status.is-error { color: var(--danger, #c0392b); }
 .link-btn {
   width: auto; background: none; border: none; color: var(--primary);
   text-decoration: underline; font-weight: 600; font-size: 0.85rem; padding: 0; cursor: pointer;
