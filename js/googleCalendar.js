@@ -58,6 +58,13 @@ export async function setGoogleCalendarChoice(userId, calendarId, calendarSummar
   if (error) throw error;
 }
 
+export async function triggerManualSync() {
+  const { data, error } = await supabase.functions.invoke("google-calendar-sync");
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data; // { ok, pulled, pushed }
+}
+
 export async function setGoogleSyncEnabled(userId, enabled) {
   const { error } = await supabase
     .from("google_calendar_connections")
