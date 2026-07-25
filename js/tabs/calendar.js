@@ -716,7 +716,7 @@ function openEventDetail(event, day) {
 
   renderReminders();
   document.getElementById("add-reminder-btn").addEventListener("click", () => {
-    reminderDraft.push({ amount: 1, unit: "hours" });
+    reminderDraft.push({ amount: 10, unit: "minutes" });
     renderReminders();
   });
 
@@ -736,12 +736,14 @@ function renderReminders() {
       .map(
         (r, i) => `
       <div class="reminder-row" data-index="${i}">
-        <input type="number" min="1" class="reminder-amount" value="${r.amount}" />
+        <input type="number" min="0" class="reminder-amount" value="${r.amount}" />
         <select class="reminder-unit">
+          <option value="minutes" ${r.unit === "minutes" ? "selected" : ""}>minute(s) avant</option>
           <option value="hours" ${r.unit === "hours" ? "selected" : ""}>heure(s) avant</option>
           <option value="days" ${r.unit === "days" ? "selected" : ""}>jour(s) avant</option>
         </select>
         <button type="button" class="reminder-remove" data-index="${i}">✕</button>
+        ${r.amount === 0 ? `<span class="field-hint reminder-now-hint">→ pile à l'heure de l'événement</span>` : ""}
       </div>
     `
       )
@@ -751,7 +753,8 @@ function renderReminders() {
   el.querySelectorAll(".reminder-amount").forEach((input) => {
     input.addEventListener("change", (e) => {
       const idx = +e.target.closest(".reminder-row").dataset.index;
-      reminderDraft[idx].amount = Math.max(1, parseInt(e.target.value) || 1);
+      reminderDraft[idx].amount = Math.max(0, parseInt(e.target.value) || 0);
+      renderReminders();
     });
   });
   el.querySelectorAll(".reminder-unit").forEach((select) => {

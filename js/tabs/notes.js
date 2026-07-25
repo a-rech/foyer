@@ -15,6 +15,7 @@ let currentUserId = null;
 let containerRef = null;
 let pendingDeleteIds = new Set();
 let notesLastSeenAt = null; // capturé avant markTabSeen, pour les badges "nouveau" par tuile
+let pendingColorOverrides = new Map(); // id -> couleur pas encore confirmée par le serveur
 
 // Drag & drop (pointer events, compatible souris + tactile)
 let draggedEl = null;
@@ -72,7 +73,7 @@ async function loadNotes() {
     .eq("archived", false)
     .order("position", { ascending: true });
   if (error) return console.error(error);
-  notes = data;
+  notes = data.map((n) => (pendingColorOverrides.has(n.id) ? { ...n, color: pendingColorOverrides.get(n.id) } : n));
   renderBoard();
 }
 
@@ -124,19 +125,20 @@ function renderBoard() {
       (n) => `
     <div class="note-card ${n.color || "card-yellow"}" data-id="${n.id}">
       ${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
-      <div class="note-card-header">
+      <div class="note-card-row">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
+        <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
         <div class="note-card-actions">
-          <button class="favorite-btn" data-action="color" aria-label="Changer la couleur">🎨</button>
-          <button class="favorite-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
+          <button class="tile-icon-btn" data-action="color" aria-label="Changer la couleur">🎨</button>
+          <button class="tile-icon-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
             ${n.favorite ? "⭐" : "☆"}
           </button>
+          <button class="tile-icon-btn" data-action="delete" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
       <div class="tile-color-picker" hidden>
         ${COLOR_CYCLE.map((c) => `<button type="button" class="tile-color-swatch ${c}" data-color="${c}" aria-label="Couleur"></button>`).join("")}
       </div>
-      <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
     </div>
   `
     )
@@ -152,6 +154,13 @@ function renderBoard() {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       handleToggleFavorite(e.target.closest(".note-card").dataset.id);
+    });
+  });
+  board.querySelectorAll('[data-action="delete"]').forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const note = notes.find((n) => n.id === e.target.closest(".note-card").dataset.id);
+      if (note) handleDeleteNoteFromBoard(note);
     });
   });
   board.querySelectorAll('[data-action="color"]').forEach((el) => {
@@ -179,8 +188,14 @@ async function handleChangeNoteColor(id, color) {
   const note = notes.find((n) => n.id === id);
   if (!note) return;
   note.color = color;
+  pendingColorOverrides.set(id, color);
   renderBoard();
-  await supabase.from("notes").update({ color }).eq("id", id);
+  const { error } = await supabase.from("notes").update({ color }).eq("id", id);
+  pendingColorOverrides.delete(id);
+  if (error) {
+    console.error(error);
+    await loadNotes(); // resynchronise si l'update a échoué côté serveur
+  }
 }
 
 // Une note est "nouvelle" si un AUTRE membre du foyer l'a ajoutée après notre dernière visite
@@ -300,7 +315,18 @@ async function handleSaveNote(e) {
 function handleDeleteNote(note) {
   pendingDeleteIds.add(note.id);
   goBack();
+  showDeleteUndoToast(note);
+}
 
+// Depuis la tuile du mur de notes : pas de vue poussée à dépiler, contrairement
+// à la suppression depuis le détail (qui doit fermer cette vue via goBack()).
+function handleDeleteNoteFromBoard(note) {
+  pendingDeleteIds.add(note.id);
+  renderBoard();
+  showDeleteUndoToast(note);
+}
+
+function showDeleteUndoToast(note) {
   showUndoToast({
     message: "Note supprimée",
     onUndo: () => {
