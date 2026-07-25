@@ -462,9 +462,68 @@ async function openDay(day, focusEvent) {
 
   if (focusEvent && !focusEvent.is_birthday && !focusEvent.all_day) {
     setTimeout(() => {
-      document.getElementById(`hour-${new Date(focusEvent.start_at).getHours()}`)?.scrollIntoView({ block: "center" });
+      document.querySelector(`.timeline-event[data-id="${focusEvent.id}"]`)?.scrollIntoView({ block: "center" });
     }, 0);
   }
+}
+
+const HOUR_HEIGHT = 48; // px par heure dans la vue journée
+
+function minutesSinceDayStart(date, day) {
+  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  return Math.round((date.getTime() - dayStart.getTime()) / 60000);
+}
+
+// Regroupe les événements qui se chevauchent, puis leur attribue une colonne
+// (façon Google Agenda) : au sein d'un groupe, chaque événement prend la
+// première colonne où il ne chevauche pas le dernier événement placé dedans.
+function layoutTimedEvents(events, day) {
+  const items = events
+    .map((e) => {
+      const start = new Date(e.start_at);
+      const end = e.end_at ? new Date(e.end_at) : new Date(start.getTime() + 30 * 60000);
+      return { event: e, start, end };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const groups = [];
+  let currentGroup = [];
+  let groupEnd = null;
+  for (const item of items) {
+    if (currentGroup.length === 0 || item.start < groupEnd) {
+      currentGroup.push(item);
+      groupEnd = groupEnd ? new Date(Math.max(groupEnd, item.end)) : item.end;
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [item];
+      groupEnd = item.end;
+    }
+  }
+  if (currentGroup.length) groups.push(currentGroup);
+
+  const positioned = [];
+  for (const group of groups) {
+    const columnEnds = [];
+    const columnOf = [];
+    for (const item of group) {
+      let placedCol = -1;
+      for (let c = 0; c < columnEnds.length; c++) {
+        if (item.start >= columnEnds[c]) {
+          columnEnds[c] = item.end;
+          placedCol = c;
+          break;
+        }
+      }
+      if (placedCol === -1) {
+        columnEnds.push(item.end);
+        placedCol = columnEnds.length - 1;
+      }
+      columnOf.push(placedCol);
+    }
+    const totalCols = columnEnds.length;
+    group.forEach((item, idx) => positioned.push({ ...item, col: columnOf[idx], totalCols }));
+  }
+  return positioned;
 }
 
 function renderHoursGrid(day) {
@@ -476,6 +535,8 @@ function renderHoursGrid(day) {
   const timedEvents = dayEvents.filter((e) => !e.is_birthday && !e.all_day);
 
   let html = "";
+  let labelsHtml = "";
+  let linesHtml = "";
   if (allDayEvents.length > 0) {
     html += `
       <div class="all-day-section">
@@ -491,25 +552,49 @@ function renderHoursGrid(day) {
   }
 
   for (let h = 0; h < 24; h++) {
-    const hourEvents = timedEvents.filter((e) => new Date(e.start_at).getHours() === h);
-    html += `
-      <div class="hour-row" id="hour-${h}">
-        <span class="hour-label">${String(h).padStart(2, "0")}h</span>
-        <div class="hour-content">
-          ${hourEvents
-            .map((e) => {
-              const endLabel = e.end_at ? ` <span class="hour-event-end">→ ${new Date(e.end_at).toTimeString().slice(0, 5)}</span>` : "";
-              const locationLabel = e.location ? `<span class="hour-event-location">📍 ${escapeHtml(e.location)}</span>` : "";
-              return `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}${endLabel}${locationLabel}</button>`;
-            })
-            .join("")}
-        </div>
-      </div>
+    labelsHtml += `<span class="timeline-hour-label" style="top:${h * HOUR_HEIGHT}px">${String(h).padStart(2, "0")}h</span>`;
+    linesHtml += `<div class="timeline-hour-line" style="top:${h * HOUR_HEIGHT}px"></div>`;
+  }
+  const positioned = layoutTimedEvents(timedEvents, day);
+  let eventsHtml = "";
+  for (const item of positioned) {
+    const startMin = Math.max(0, minutesSinceDayStart(item.start, day));
+    let endMin = minutesSinceDayStart(item.end, day);
+    if (endMin > 24 * 60) endMin = 24 * 60; // événement qui déborde sur le lendemain : coupé à minuit
+    if (endMin <= startMin) endMin = startMin + 30;
+
+    const top = (startMin / 60) * HOUR_HEIGHT;
+    const height = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT, 26);
+    const width = 100 / item.totalCols;
+    const left = item.col * width;
+
+    const e = item.event;
+    const timeLabel = e.end_at
+      ? `${item.start.toTimeString().slice(0, 5)}–${item.end.toTimeString().slice(0, 5)}`
+      : item.start.toTimeString().slice(0, 5);
+    const locationLabel = e.location ? `<span class="hour-event-location">📍 ${escapeHtml(e.location)}</span>` : "";
+
+    eventsHtml += `
+      <button class="timeline-event" data-id="${e.id}" style="top:${top}px; height:${height}px; left:${left}%; width:${width}%;">
+        <span class="hour-event-title">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}</span>
+        <span class="timeline-event-time">${timeLabel}</span>
+        ${locationLabel}
+      </button>
     `;
   }
+
+  html += `
+    <div class="day-timeline-wrap" style="height:${24 * HOUR_HEIGHT}px">
+      <div class="timeline-hour-labels">${labelsHtml}</div>
+      <div class="day-timeline">
+        ${linesHtml}
+        ${eventsHtml}
+      </div>
+    </div>
+  `;
   grid.innerHTML = html;
 
-  grid.querySelectorAll(".hour-event").forEach((el) => {
+  grid.querySelectorAll(".hour-event, .timeline-event").forEach((el) => {
     el.addEventListener("click", () => {
       const event = eventsById.get(el.dataset.id);
       eventReturnTo = "day";
