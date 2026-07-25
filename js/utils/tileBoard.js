@@ -53,8 +53,9 @@ export function renderTileBoard(boardEl, items, options) {
       return `
     <div class="tile-card ${color}" data-id="${getId(item)}">
       ${isNew && isNew(item) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
-      <div class="tile-card-header">
+      <div class="tile-card-row">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
+        <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
         <div class="tile-card-actions">
           ${onColorChange ? `<button class="tile-icon-btn" data-action="color" aria-label="Changer la couleur">🎨</button>` : ""}
           ${onEdit ? `<button class="tile-icon-btn" data-action="edit" aria-label="Modifier">✎</button>` : ""}
@@ -68,7 +69,6 @@ export function renderTileBoard(boardEl, items, options) {
             </div>`
           : ""
       }
-      <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
     </div>
   `;
     })
