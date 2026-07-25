@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 43;
+const CACHE_VERSION = 44;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -47,10 +47,14 @@ self.addEventListener("message", (event) => {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // On met chaque fichier en cache individuellement : si l'un d'eux
-      // est manquant ou 404, ça ne fait pas échouer toute l'installation
-      // (contrairement à cache.addAll qui est tout-ou-rien).
-      const results = await Promise.allSettled(APP_SHELL.map((url) => cache.add(url)));
+      // On force le contournement du cache HTTP du navigateur (cache.add()
+      // seul ne le garantit pas) : sinon, juste après un déploiement, on
+      // risque de précacher une copie encore périmée des fichiers.
+      const results = await Promise.allSettled(
+        APP_SHELL.map((url) =>
+          fetch(url, { cache: "reload" }).then((response) => cache.put(url, response))
+        )
+      );
       results.forEach((r, i) => {
         if (r.status === "rejected") console.warn("Précache échoué pour", APP_SHELL[i], r.reason);
       });
@@ -68,11 +72,13 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Stratégie : réseau d'abord (données à jour), cache en secours si hors-ligne
+// Stratégie : réseau d'abord (données à jour), cache en secours si hors-ligne.
+// cache: "no-store" pour vraiment taper le réseau à chaque fois, plutôt que
+// de laisser le cache HTTP du navigateur resservir une réponse périmée.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-store" })
       .then((response) => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
