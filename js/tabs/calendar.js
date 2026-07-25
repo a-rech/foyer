@@ -108,6 +108,13 @@ function eventOccursOnDay(event, day) {
   if (event.is_birthday) {
     return start.getMonth() === day.getMonth() && start.getDate() === day.getDate();
   }
+  if (event.all_day) {
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endSource = event.end_at ? new Date(event.end_at) : start;
+    const endDay = new Date(endSource.getFullYear(), endSource.getMonth(), endSource.getDate());
+    const d = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    return d >= startDay && d <= endDay;
+  }
   return isSameDay(start, day);
 }
 
@@ -453,7 +460,7 @@ async function openDay(day, focusEvent) {
 
   renderHoursGrid(day);
 
-  if (focusEvent && !focusEvent.is_birthday) {
+  if (focusEvent && !focusEvent.is_birthday && !focusEvent.all_day) {
     setTimeout(() => {
       document.getElementById(`hour-${new Date(focusEvent.start_at).getHours()}`)?.scrollIntoView({ block: "center" });
     }, 0);
@@ -465,8 +472,8 @@ function renderHoursGrid(day) {
   if (!grid) return;
 
   const dayEvents = eventsOnDay(day);
-  const allDayEvents = dayEvents.filter((e) => e.is_birthday);
-  const timedEvents = dayEvents.filter((e) => !e.is_birthday);
+  const allDayEvents = dayEvents.filter((e) => e.is_birthday || e.all_day);
+  const timedEvents = dayEvents.filter((e) => !e.is_birthday && !e.all_day);
 
   let html = "";
   if (allDayEvents.length > 0) {
@@ -474,7 +481,7 @@ function renderHoursGrid(day) {
       <div class="all-day-section">
         <span class="all-day-label">Toute la journée</span>
         ${allDayEvents
-          .map((e) => `<button class="hour-event all-day-event" data-id="${e.id}">🎂 ${escapeHtml(e.title)}</button>`)
+          .map((e) => `<button class="hour-event all-day-event" data-id="${e.id}">${e.is_birthday ? "🎂" : "🗓️"} ${escapeHtml(e.title)}</button>`)
           .join("")}
       </div>
     `;
@@ -487,7 +494,10 @@ function renderHoursGrid(day) {
         <span class="hour-label">${String(h).padStart(2, "0")}h</span>
         <div class="hour-content">
           ${hourEvents
-            .map((e) => `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}</button>`)
+            .map((e) => {
+              const endLabel = e.end_at ? ` <span class="hour-event-end">→ ${new Date(e.end_at).toTimeString().slice(0, 5)}</span>` : "";
+              return `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}${endLabel}</button>`;
+            })
             .join("")}
         </div>
       </div>
@@ -532,6 +542,8 @@ function openEventDetail(event, day) {
 
   const backLabel = returnTo === "overview" ? "‹ Calendrier" : `‹ ${day.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
   const isBirthday = event?.is_birthday ?? false;
+  const isAllDay = event?.all_day ?? false;
+  const endDate = event?.end_at ? new Date(event.end_at) : startDate;
 
   containerRef.innerHTML = `
     <div class="list-detail">
@@ -540,13 +552,28 @@ function openEventDetail(event, day) {
         <label class="field-label" for="ev-title">Intitulé</label>
         <input id="ev-title" placeholder="Ex : Anniversaire de Léa" value="${event ? escapeHtml(event.title) : ""}" required />
 
+        <label class="field-label" for="ev-location">📍 Lieu</label>
+        <input id="ev-location" placeholder="Ex : Chez Mamie" value="${event?.location ? escapeHtml(event.location) : ""}" />
+
         <label class="field-label" for="ev-date">Date</label>
         <input id="ev-date" type="date" value="${toDateInputValue(startDate)}" required />
 
-        <div id="time-field-wrap">
-          <label class="field-label" for="ev-time">Heure</label>
-          <input id="ev-time" type="time" value="${toTimeInputValue(startDate)}" required />
+        <div id="end-date-wrap" style="display:none">
+          <label class="field-label" for="ev-end-date">Jusqu'au</label>
+          <input id="ev-end-date" type="date" value="${toDateInputValue(endDate)}" />
         </div>
+
+        <div id="time-field-wrap">
+          <label class="field-label" for="ev-time">Heure de début</label>
+          <input id="ev-time" type="time" value="${toTimeInputValue(startDate)}" required />
+          <label class="field-label" for="ev-end-time">Heure de fin</label>
+          <input id="ev-end-time" type="time" value="${event?.end_at ? toTimeInputValue(endDate) : ""}" />
+        </div>
+
+        <label class="checkbox-row" id="allday-row">
+          <input id="ev-allday" type="checkbox" ${isAllDay ? "checked" : ""} />
+          <span>🗓️ Toute la journée</span>
+        </label>
 
         <label class="checkbox-row">
           <input id="ev-birthday" type="checkbox" ${isBirthday ? "checked" : ""} />
@@ -577,15 +604,26 @@ function openEventDetail(event, day) {
   `;
 
   const birthdayCheckbox = document.getElementById("ev-birthday");
+  const alldayCheckbox = document.getElementById("ev-allday");
+  const alldayRow = document.getElementById("allday-row");
   const timeFieldWrap = document.getElementById("time-field-wrap");
+  const endDateWrap = document.getElementById("end-date-wrap");
   const birthdayHint = document.getElementById("birthday-hint");
-  const syncBirthdayUI = () => {
-    const checked = birthdayCheckbox.checked;
-    timeFieldWrap.style.display = checked ? "none" : "block";
-    birthdayHint.style.display = checked ? "block" : "none";
+
+  const syncFormUI = () => {
+    const bday = birthdayCheckbox.checked;
+    const allday = alldayCheckbox.checked;
+    timeFieldWrap.style.display = bday || allday ? "none" : "block";
+    endDateWrap.style.display = allday && !bday ? "block" : "none";
+    birthdayHint.style.display = bday ? "block" : "none";
+    alldayRow.style.display = bday ? "none" : "flex";
   };
-  birthdayCheckbox.addEventListener("change", syncBirthdayUI);
-  syncBirthdayUI();
+  birthdayCheckbox.addEventListener("change", () => {
+    if (birthdayCheckbox.checked) alldayCheckbox.checked = false;
+    syncFormUI();
+  });
+  alldayCheckbox.addEventListener("change", syncFormUI);
+  syncFormUI();
 
   renderReminders();
   document.getElementById("add-reminder-btn").addEventListener("click", () => {
@@ -645,17 +683,46 @@ function renderReminders() {
 async function handleSaveEvent(e, day) {
   e.preventDefault();
   const title = document.getElementById("ev-title").value.trim();
+  const location = document.getElementById("ev-location").value.trim();
   const dateVal = document.getElementById("ev-date").value;
   const isBirthday = document.getElementById("ev-birthday").checked;
+  const isAllDay = document.getElementById("ev-allday").checked;
   const important = document.getElementById("ev-important").checked;
   const addToTasks = document.getElementById("ev-add-task").checked;
-  const timeVal = isBirthday ? "00:00" : document.getElementById("ev-time").value;
-  if (!title || !dateVal || !timeVal) return;
+  if (!title || !dateVal) return;
 
-  const startAt = new Date(`${dateVal}T${timeVal}`);
+  let startAt;
+  let endAt = null;
+  let allDayFlag = false;
+
+  if (isBirthday) {
+    startAt = new Date(`${dateVal}T00:00:00`);
+    allDayFlag = true;
+  } else if (isAllDay) {
+    const endDateVal = document.getElementById("ev-end-date").value || dateVal;
+    startAt = new Date(`${dateVal}T00:00:00`);
+    endAt = new Date(`${endDateVal}T00:00:00`);
+    if (endAt < startAt) endAt = startAt;
+    allDayFlag = true;
+  } else {
+    const timeVal = document.getElementById("ev-time").value;
+    if (!timeVal) return;
+    startAt = new Date(`${dateVal}T${timeVal}`);
+    const endTimeVal = document.getElementById("ev-end-time").value;
+    if (endTimeVal) {
+      const candidate = new Date(`${dateVal}T${endTimeVal}`);
+      // Heure de fin incohérente (avant ou égale au début) : on l'ignore
+      // plutôt que de bloquer l'enregistrement.
+      if (candidate > startAt) endAt = candidate;
+    }
+  }
+
   const payload = {
     title,
+    location: location || null,
     start_at: startAt.toISOString(),
+    end_at: endAt ? endAt.toISOString() : null,
+    all_day: allDayFlag,
     is_birthday: isBirthday,
     important,
     reminders: reminderDraft,
