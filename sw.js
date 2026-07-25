@@ -1,7 +1,7 @@
 // ⚠️ Incrémentez ce numéro à CHAQUE modification de fichiers JS/CSS/HTML avant
 // de déployer. C'est ce qui force les navigateurs des membres du foyer à
 // récupérer la nouvelle version plutôt que de resservir l'ancienne en cache.
-const CACHE_VERSION = 44;
+const CACHE_VERSION = 45;
 const CACHE_NAME = `foyer-cache-v${CACHE_VERSION}`;
 const APP_SHELL = [
   "index.html",
@@ -72,13 +72,11 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Stratégie : réseau d'abord (données à jour), cache en secours si hors-ligne.
-// cache: "no-store" pour vraiment taper le réseau à chaque fois, plutôt que
-// de laisser le cache HTTP du navigateur resservir une réponse périmée.
+// Stratégie : réseau d'abord (données à jour), cache en secours si hors-ligne
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    fetch(event.request, { cache: "no-store" })
+    fetch(event.request)
       .then((response) => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
