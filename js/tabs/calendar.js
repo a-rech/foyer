@@ -481,7 +481,10 @@ function renderHoursGrid(day) {
       <div class="all-day-section">
         <span class="all-day-label">Toute la journée</span>
         ${allDayEvents
-          .map((e) => `<button class="hour-event all-day-event" data-id="${e.id}">${e.is_birthday ? "🎂" : "🗓️"} ${escapeHtml(e.title)}</button>`)
+          .map((e) => {
+            const locationLabel = e.location ? `<span class="hour-event-location">📍 ${escapeHtml(e.location)}</span>` : "";
+            return `<button class="hour-event all-day-event" data-id="${e.id}">${e.is_birthday ? "🎂" : "🗓️"} ${escapeHtml(e.title)}${locationLabel}</button>`;
+          })
           .join("")}
       </div>
     `;
@@ -496,7 +499,8 @@ function renderHoursGrid(day) {
           ${hourEvents
             .map((e) => {
               const endLabel = e.end_at ? ` <span class="hour-event-end">→ ${new Date(e.end_at).toTimeString().slice(0, 5)}</span>` : "";
-              return `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}${endLabel}</button>`;
+              const locationLabel = e.location ? `<span class="hour-event-location">📍 ${escapeHtml(e.location)}</span>` : "";
+              return `<button class="hour-event" data-id="${e.id}">${e.important ? "⭐ " : ""}${escapeHtml(e.title)}${endLabel}${locationLabel}</button>`;
             })
             .join("")}
         </div>

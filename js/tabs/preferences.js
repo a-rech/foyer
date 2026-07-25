@@ -20,6 +20,7 @@ import {
   createDedicatedGoogleCalendar,
   setGoogleCalendarChoice,
   setGoogleSyncEnabled,
+  triggerManualSync,
 } from "../googleCalendar.js";
 
 let ctxRef = null;
@@ -272,6 +273,18 @@ function handleGoogleRedirectResult() {
   }
 }
 
+function formatLastSynced(isoString) {
+  if (!isoString) return "jamais encore";
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.round(hours / 24);
+  return `il y a ${days} j`;
+}
+
 async function renderGoogleCalendarBlock() {
   const el = document.getElementById("google-calendar-block");
   if (!el) return;
@@ -300,6 +313,7 @@ async function renderGoogleCalendarBlock() {
   }
 
   const calendarLabel = connection.calendar_summary || (connection.calendar_id === "primary" ? "Agenda principal" : connection.calendar_id);
+  const lastSyncLabel = formatLastSynced(connection.last_synced_at);
 
   el.innerHTML = `
     <p class="prefs-google-account">✅ Connecté${connection.google_email ? ` en tant que ${escapeHtml(connection.google_email)}` : ""}</p>
@@ -314,8 +328,32 @@ async function renderGoogleCalendarBlock() {
       Activer la synchronisation
     </label>
 
+    ${
+      connection.sync_enabled
+        ? `
+      <p class="prefs-sync-status ${connection.last_sync_error ? "is-error" : ""}">
+        ${connection.last_sync_error ? `⚠️ Erreur : ${escapeHtml(connection.last_sync_error)}` : `Dernière synchro : ${lastSyncLabel}`}
+      </p>
+      <button id="google-sync-now" class="btn-secondary" type="button">🔄 Synchroniser maintenant</button>
+    `
+        : ""
+    }
+
     <button id="google-disconnect" class="btn-danger">Déconnecter</button>
   `;
+
+  document.getElementById("google-sync-now")?.addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Synchronisation...";
+    try {
+      const result = await triggerManualSync();
+      showStatus("google-calendar-status", `Synchro ✓ (${result.pulled} tiré, ${result.pushed} poussé)`);
+    } catch (err) {
+      showStatus("google-calendar-status", "Erreur : " + err.message);
+    }
+    renderGoogleCalendarBlock();
+  });
 
   document.getElementById("google-sync-toggle").addEventListener("change", async (e) => {
     try {
@@ -325,6 +363,7 @@ async function renderGoogleCalendarBlock() {
       e.target.checked = !e.target.checked;
       showStatus("google-calendar-status", "Erreur : " + err.message);
     }
+    renderGoogleCalendarBlock();
   });
 
   document.getElementById("google-disconnect").addEventListener("click", () => {
