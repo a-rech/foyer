@@ -294,6 +294,7 @@ button.secondary {
   cursor: pointer; font-family: inherit; font-weight: 600;
 }
 .hour-event.all-day-event { background: var(--card-yellow); color: var(--card-yellow-text); }
+.hour-event-end { font-size: 0.72rem; opacity: 0.7; font-weight: 400; }
 #add-event-btn { width: auto; margin-bottom: 14px; padding: 10px 16px; }
 
 /* Formulaire d'événement : un champ par ligne, texte et zones agrandis */
