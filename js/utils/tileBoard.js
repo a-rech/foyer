@@ -22,23 +22,13 @@ let draggedEl = null;
 //   emptyMessage       -> texte si la liste est vide
 //   isNew(item)         -> true pour afficher le badge vert "N" en haut à gauche
 //   onOpen(item)        -> tap sur le contenu de la tuile
-//   onEdit(item)        -> tap sur l'icône ✎ (omise si absente)
-//   onDelete(item)      -> tap sur l'icône 🗑️ (omise si absente)
-//   onColorChange(item, color) -> tap sur une pastille du sélecteur de couleur (omis si absent)
 //   onReorder(orderedIds) -> appelé après un glisser-déposer avec la nouvelle liste d'ids
+//
+// Couleur, renommage et suppression ne sont PAS sur la tuile : ils vivent dans
+// la page vers laquelle elle mène (voir renderColorPickerHeader/wireColorPickerHeader
+// ci-dessous, utilisés dans les en-têtes de détail de recipes.js/shopping.js/notes.js).
 export function renderTileBoard(boardEl, items, options) {
-  const {
-    getId,
-    getLabel,
-    getColor,
-    emptyMessage = "Rien pour l'instant.",
-    isNew,
-    onOpen,
-    onEdit,
-    onDelete,
-    onColorChange,
-    onReorder,
-  } = options;
+  const { getId, getLabel, getColor, emptyMessage = "Rien pour l'instant.", isNew, onOpen, onReorder } = options;
 
   if (!boardEl) return;
 
@@ -56,19 +46,7 @@ export function renderTileBoard(boardEl, items, options) {
       <div class="tile-card-row">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
         <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
-        <div class="tile-card-actions">
-          ${onColorChange ? `<button class="tile-icon-btn" data-action="color" aria-label="Changer la couleur">🎨</button>` : ""}
-          ${onEdit ? `<button class="tile-icon-btn" data-action="edit" aria-label="Modifier">✎</button>` : ""}
-          ${onDelete ? `<button class="tile-icon-btn" data-action="delete" aria-label="Supprimer">🗑️</button>` : ""}
-        </div>
       </div>
-      ${
-        onColorChange
-          ? `<div class="tile-color-picker" hidden>
-              ${COLOR_CYCLE.map((c) => `<button type="button" class="tile-color-swatch ${c}" data-color="${c}" aria-label="Couleur"></button>`).join("")}
-            </div>`
-          : ""
-      }
     </div>
   `;
     })
@@ -87,47 +65,46 @@ export function renderTileBoard(boardEl, items, options) {
       });
     });
   }
-  if (onEdit) {
-    boardEl.querySelectorAll('[data-action="edit"]').forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const item = findItem(el);
-        if (item) onEdit(item);
-      });
-    });
-  }
-  if (onDelete) {
-    boardEl.querySelectorAll('[data-action="delete"]').forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const item = findItem(el);
-        if (item) onDelete(item);
-      });
-    });
-  }
-  if (onColorChange) {
-    boardEl.querySelectorAll('[data-action="color"]').forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const picker = el.closest(".tile-card").querySelector(".tile-color-picker");
-        const wasHidden = picker.hidden;
-        boardEl.querySelectorAll(".tile-color-picker").forEach((p) => (p.hidden = true));
-        picker.hidden = !wasHidden;
-      });
-    });
-    boardEl.querySelectorAll(".tile-color-swatch").forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const item = findItem(el);
-        if (item) onColorChange(item, el.dataset.color);
-      });
-    });
-  }
   if (onReorder) {
     boardEl.querySelectorAll(".drag-handle").forEach((el) => {
       el.addEventListener("pointerdown", (e) => onDragHandlePointerDown(e, boardEl, onReorder));
     });
   }
+}
+
+// Bouton "🎨" + popup de pastilles de couleur, à placer dans un en-tête de
+// page de détail (à côté du titre), plutôt que sur une tuile.
+export function renderColorPickerHeader() {
+  return `
+    <div class="detail-color-picker-wrap">
+      <button type="button" class="icon-btn" data-action="color" aria-label="Changer la couleur">🎨</button>
+      <div class="tile-color-picker" hidden>
+        ${COLOR_CYCLE.map((c) => `<button type="button" class="tile-color-swatch ${c}" data-color="${c}" aria-label="Couleur"></button>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+// Branche le bouton/popup ci-dessus. `container` doit contenir les deux
+// éléments (bouton + popup) ; onPick(color) est appelé au choix d'une pastille.
+export function wireColorPickerHeader(container, onPick) {
+  const toggleBtn = container.querySelector('[data-action="color"]');
+  const picker = container.querySelector(".tile-color-picker");
+  if (!toggleBtn || !picker) return;
+  toggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.querySelectorAll(".tile-color-picker:not([hidden])").forEach((p) => {
+      if (p !== picker) p.hidden = true;
+    });
+    picker.hidden = !picker.hidden;
+  });
+  picker.querySelectorAll(".tile-color-swatch").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      picker.hidden = true;
+      onPick(el.dataset.color);
+    });
+  });
 }
 
 function onDragHandlePointerDown(e, boardEl, onReorder) {
