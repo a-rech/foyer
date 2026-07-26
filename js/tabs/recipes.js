@@ -261,6 +261,10 @@ function renderRecipes() {
     getColor: (r) => r.color,
     emptyMessage: "Aucune recette dans cette catégorie.",
     isNew: (recipe) => recipe.created_by !== currentUserId && shouldShowBadge(recipe.created_at, recipesLastSeenAt),
+    topRightHtml: (recipe) =>
+      recipe.link
+        ? `<a href="${escapeHtml(recipe.link)}" target="_blank" rel="noopener" class="tile-link-btn" aria-label="Ouvrir le lien">🔗</a>`
+        : "",
     onOpen: (recipe) => openRecipeDetail(recipe),
     onReorder: handleReorderRecipes,
   });
@@ -331,6 +335,12 @@ function openRecipeDetail(recipe) {
           }
         </div>
 
+        <label class="field-label" for="r-link">🔗 Lien (optionnel)</label>
+        <div class="recipe-link-row">
+          <input id="r-link" type="url" placeholder="https://…" value="${escapeHtml(recipe?.link ?? draft?.link ?? "")}" />
+          <a id="r-link-open" href="#" target="_blank" rel="noopener" class="recipe-link-open" hidden>Ouvrir ↗</a>
+        </div>
+
         <label class="field-label" for="r-ingredients">🥕 Ingrédients</label>
         <textarea id="r-ingredients" class="recipe-textarea-lg" placeholder="Un ingrédient par ligne…">${recipe?.ingredients ?? draft?.ingredients ?? ""}</textarea>
 
@@ -357,13 +367,43 @@ function openRecipeDetail(recipe) {
     document.getElementById("delete-recipe-detail-btn").addEventListener("click", () => handleDeleteRecipeFromDetail(recipe));
   }
 
+  document.getElementById("r-link").addEventListener("input", updateLinkOpenButton);
+  updateLinkOpenButton();
+
   // Sauvegarde continue du brouillon pendant la saisie (uniquement en création,
   // pas en édition d'une recette existante) : si l'appli est rechargée de force
   // (changement d'appli sur mobile, etc.), le travail en cours n'est pas perdu.
   if (!recipe) {
-    ["r-title", "r-ingredients", "r-instructions", "r-notes"].forEach((id) => {
+    ["r-title", "r-ingredients", "r-instructions", "r-notes", "r-link"].forEach((id) => {
       document.getElementById(id).addEventListener("input", () => saveDraft(currentCategory.id));
     });
+  }
+}
+
+// Normalise une URL saisie par l'utilisateur : ajoute https:// si aucun schéma
+// n'est présent, puis valide via l'API URL. Retourne "" si vide, null si invalide.
+function normalizeUrl(raw) {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  const withScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(withScheme).href;
+  } catch {
+    return null;
+  }
+}
+
+// Affiche/masque et met à jour le bouton "Ouvrir ↗" selon le contenu actuel du champ Lien
+function updateLinkOpenButton() {
+  const input = document.getElementById("r-link");
+  const openBtn = document.getElementById("r-link-open");
+  if (!input || !openBtn) return;
+  const normalized = normalizeUrl(input.value);
+  if (normalized) {
+    openBtn.href = normalized;
+    openBtn.hidden = false;
+  } else {
+    openBtn.hidden = true;
   }
 }
 
@@ -377,8 +417,9 @@ function saveDraft(categoryId) {
     ingredients: document.getElementById("r-ingredients")?.value ?? "",
     instructions: document.getElementById("r-instructions")?.value ?? "",
     notes: document.getElementById("r-notes")?.value ?? "",
+    link: document.getElementById("r-link")?.value ?? "",
   };
-  const isEmpty = !draft.title && !draft.ingredients && !draft.instructions && !draft.notes;
+  const isEmpty = !draft.title && !draft.ingredients && !draft.instructions && !draft.notes && !draft.link;
   try {
     if (isEmpty) localStorage.removeItem(draftStorageKey(categoryId));
     else localStorage.setItem(draftStorageKey(categoryId), JSON.stringify(draft));
@@ -406,11 +447,20 @@ function clearDraft(categoryId) {
 
 async function handleSaveRecipe(e) {
   e.preventDefault();
+
+  const rawLink = document.getElementById("r-link").value;
+  const link = normalizeUrl(rawLink);
+  if (link === null) {
+    alert("Le lien saisi n'est pas valide.");
+    return;
+  }
+
   const values = {
     title: document.getElementById("r-title").value.trim(),
     ingredients: document.getElementById("r-ingredients").value.trim(),
     instructions: document.getElementById("r-instructions").value.trim(),
     notes: document.getElementById("r-notes").value.trim(),
+    link,
   };
 
   if (currentRecipe) {

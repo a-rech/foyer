@@ -222,7 +222,12 @@ function renderRecipePicker(filter) {
   }
 
   el.innerHTML = filtered
-    .map((r) => `<div class="list-row" data-id="${r.id}"><span class="list-row-name" data-action="pick">${escapeHtml(r.title)}</span></div>`)
+    .map(
+      (r) => `<div class="list-row" data-id="${r.id}">
+        <span class="list-row-name" data-action="pick">${escapeHtml(r.title)}</span>
+        ${r.link ? `<a href="${escapeHtml(r.link)}" target="_blank" rel="noopener" class="tile-link-btn" aria-label="Ouvrir le lien">🔗</a>` : ""}
+      </div>`
+    )
     .join("");
 
   el.querySelectorAll('[data-action="pick"]').forEach((btn) => {
