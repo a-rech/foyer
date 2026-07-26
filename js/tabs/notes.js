@@ -124,14 +124,16 @@ function renderBoard() {
     .map(
       (n) => `
     <div class="note-card ${n.color || "card-yellow"}" data-id="${n.id}">
-      ${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
-      <div class="note-card-row">
+      <div class="tile-toprow">
+        <span class="tile-toprow-left">${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}</span>
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
-        <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
-        <button class="tile-icon-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
-          ${n.favorite ? "⭐" : "☆"}
-        </button>
+        <span class="tile-toprow-right">
+          <button class="tile-icon-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
+            ${n.favorite ? "⭐" : "☆"}
+          </button>
+        </span>
       </div>
+      <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
     </div>
   `
     )
@@ -249,16 +251,18 @@ function openNote(note) {
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-board" class="back-btn">‹ Notes</button>
-      <form id="note-detail-form" class="recipe-form">
-        <textarea id="note-detail-content" placeholder="Contenu de la note" required>${escapeHtml(note.content)}</textarea>
-        <button type="submit">Enregistrer</button>
-      </form>
-      <div class="note-detail-actions">
-        ${renderColorPickerHeader()}
-        <button type="button" id="note-detail-favorite" class="secondary">
-          ${note.favorite ? "⭐ Retirer des favoris" : "☆ Mettre en favori"}
-        </button>
-        <button type="button" id="note-detail-delete" class="danger-btn">Supprimer</button>
+      <div class="note-detail-card ${note.color || "card-yellow"}" id="note-detail-card">
+        <form id="note-detail-form" class="recipe-form">
+          <textarea id="note-detail-content" placeholder="Contenu de la note" required>${escapeHtml(note.content)}</textarea>
+          <button type="submit">Enregistrer</button>
+        </form>
+        <div class="note-detail-actions">
+          <button type="button" id="note-detail-delete" class="danger-btn">Supprimer</button>
+          ${renderColorPickerHeader()}
+          <button type="button" id="note-detail-favorite" class="secondary">
+            ${note.favorite ? "⭐ Retirer des favoris" : "☆ Mettre en favori"}
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -271,7 +275,12 @@ function openNote(note) {
     openNote(currentNote);
   });
   document.getElementById("note-detail-delete").addEventListener("click", () => handleDeleteNote(currentNote));
-  wireColorPickerHeader(document.querySelector(".note-detail-actions"), (color) => handleChangeNoteColor(note.id, color));
+  wireColorPickerHeader(document.querySelector(".note-detail-actions"), (color) => {
+    handleChangeNoteColor(note.id, color);
+    // Retour visuel immédiat, sans attendre de revenir au mur de notes
+    const card = document.getElementById("note-detail-card");
+    if (card) card.className = `note-detail-card ${color}`;
+  });
 }
 
 async function handleSaveNote(e) {
