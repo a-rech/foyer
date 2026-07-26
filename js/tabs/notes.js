@@ -4,7 +4,7 @@ import { markTabSeen, getLastSeenMap, shouldShowBadge } from "../badges.js";
 import { goHome, pushView, goBack } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
-import { COLOR_CYCLE, randomTileColor } from "../utils/tileBoard.js";
+import { COLOR_CYCLE, randomTileColor, renderColorPickerHeader, wireColorPickerHeader } from "../utils/tileBoard.js";
 
 let unsubscribe = null;
 let notes = [];
@@ -128,16 +128,9 @@ function renderBoard() {
       <div class="note-card-row">
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
         <p class="note-card-content" data-action="open">${escapeHtml(n.content)}</p>
-        <div class="note-card-actions">
-          <button class="tile-icon-btn" data-action="color" aria-label="Changer la couleur">🎨</button>
-          <button class="tile-icon-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
-            ${n.favorite ? "⭐" : "☆"}
-          </button>
-          <button class="tile-icon-btn" data-action="delete" aria-label="Supprimer">🗑️</button>
-        </div>
-      </div>
-      <div class="tile-color-picker" hidden>
-        ${COLOR_CYCLE.map((c) => `<button type="button" class="tile-color-swatch ${c}" data-color="${c}" aria-label="Couleur"></button>`).join("")}
+        <button class="tile-icon-btn ${n.favorite ? "is-favorite" : ""}" data-action="favorite" aria-label="Favori">
+          ${n.favorite ? "⭐" : "☆"}
+        </button>
       </div>
     </div>
   `
@@ -154,29 +147,6 @@ function renderBoard() {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       handleToggleFavorite(e.target.closest(".note-card").dataset.id);
-    });
-  });
-  board.querySelectorAll('[data-action="delete"]').forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const note = notes.find((n) => n.id === e.target.closest(".note-card").dataset.id);
-      if (note) handleDeleteNoteFromBoard(note);
-    });
-  });
-  board.querySelectorAll('[data-action="color"]').forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const picker = el.closest(".note-card").querySelector(".tile-color-picker");
-      const wasHidden = picker.hidden;
-      board.querySelectorAll(".tile-color-picker").forEach((p) => (p.hidden = true));
-      picker.hidden = !wasHidden;
-    });
-  });
-  board.querySelectorAll(".tile-color-swatch").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = el.closest(".note-card").dataset.id;
-      handleChangeNoteColor(id, el.dataset.color);
     });
   });
   board.querySelectorAll(".drag-handle").forEach((el) => {
@@ -284,6 +254,7 @@ function openNote(note) {
         <button type="submit">Enregistrer</button>
       </form>
       <div class="note-detail-actions">
+        ${renderColorPickerHeader()}
         <button type="button" id="note-detail-favorite" class="secondary">
           ${note.favorite ? "⭐ Retirer des favoris" : "☆ Mettre en favori"}
         </button>
@@ -300,6 +271,7 @@ function openNote(note) {
     openNote(currentNote);
   });
   document.getElementById("note-detail-delete").addEventListener("click", () => handleDeleteNote(currentNote));
+  wireColorPickerHeader(document.querySelector(".note-detail-actions"), (color) => handleChangeNoteColor(note.id, color));
 }
 
 async function handleSaveNote(e) {
@@ -315,14 +287,6 @@ async function handleSaveNote(e) {
 function handleDeleteNote(note) {
   pendingDeleteIds.add(note.id);
   goBack();
-  showDeleteUndoToast(note);
-}
-
-// Depuis la tuile du mur de notes : pas de vue poussée à dépiler, contrairement
-// à la suppression depuis le détail (qui doit fermer cette vue via goBack()).
-function handleDeleteNoteFromBoard(note) {
-  pendingDeleteIds.add(note.id);
-  renderBoard();
   showDeleteUndoToast(note);
 }
 

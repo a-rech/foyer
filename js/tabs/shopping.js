@@ -4,7 +4,7 @@ import { markTabSeen, getLastSeenMap, computeUnseenIds } from "../badges.js";
 import { getLists, createList, deleteList, renameList, getItemsForList, updateListPosition, updateListColor } from "../lists.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderTileBoard } from "../utils/tileBoard.js";
+import { renderTileBoard, renderColorPickerHeader, wireColorPickerHeader } from "../utils/tileBoard.js";
 import { pushView, goBack, goHome } from "../router.js";
 
 let unsubscribeLists = null;
@@ -94,8 +94,6 @@ function renderLists() {
     emptyMessage: "Aucune liste pour l'instant.",
     isNew: (list) => unseenListIds.has(list.id),
     onOpen: (list) => openList(list),
-    onDelete: (list) => handleDeleteList(list.id),
-    onColorChange: handleChangeListColor,
     onReorder: handleReorderLists,
   });
 }
@@ -126,28 +124,6 @@ async function handleCreateList(e) {
   input.value = "";
   await createList(currentHouseholdId, name, currentUserId);
   await loadLists();
-}
-
-function handleDeleteList(id) {
-  const list = lists.find((l) => l.id === id);
-  if (!list) return;
-
-  // Masquage optimiste immédiat + toast d'annulation 2s avant suppression réelle
-  pendingDeleteIds.add(id);
-  renderLists();
-
-  showUndoToast({
-    message: `Liste « ${list.name} » supprimée`,
-    onUndo: () => {
-      pendingDeleteIds.delete(id);
-      renderLists();
-    },
-    onConfirm: async () => {
-      pendingDeleteIds.delete(id);
-      await deleteList(id);
-      await loadLists();
-    },
-  });
 }
 
 // ==========================================
@@ -196,12 +172,14 @@ function renderDetailTitleRow(list) {
   row.innerHTML = `
     <h2 class="list-detail-title">${escapeHtml(list.name)}</h2>
     <div class="detail-title-actions">
+      ${renderColorPickerHeader()}
       <button id="rename-list-btn" class="icon-btn" aria-label="Renommer la liste">✎</button>
       <button id="delete-list-detail-btn" class="icon-btn" aria-label="Supprimer la liste">🗑️</button>
     </div>
   `;
   document.getElementById("rename-list-btn").addEventListener("click", () => startRenameList(list));
   document.getElementById("delete-list-detail-btn").addEventListener("click", () => handleDeleteListFromDetail(list));
+  wireColorPickerHeader(row.querySelector(".detail-title-actions"), (color) => handleChangeListColor(list, color));
 }
 
 function startRenameList(list) {

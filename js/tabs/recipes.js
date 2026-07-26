@@ -3,7 +3,7 @@ import { subscribeToTable } from "../sync.js";
 import { markTabSeen, getLastSeenMap, shouldShowBadge, computeUnseenIds } from "../badges.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderTileBoard } from "../utils/tileBoard.js";
+import { renderTileBoard, renderColorPickerHeader, wireColorPickerHeader } from "../utils/tileBoard.js";
 import { pushView, goBack, goHome } from "../router.js";
 import {
   getCategories,
@@ -111,7 +111,6 @@ function renderCategories() {
     emptyMessage: "Aucune catégorie pour l'instant.",
     isNew: (cat) => unseenCategoryIds.has(cat.id),
     onOpen: (cat) => openCategory(cat),
-    onColorChange: handleChangeCategoryColor,
     onReorder: handleReorderCategories,
   });
 }
@@ -193,12 +192,14 @@ function renderCategoryTitleRow(category) {
   row.innerHTML = `
     <h2 class="list-detail-title">${escapeHtml(category.name)}</h2>
     <div class="detail-title-actions">
+      ${renderColorPickerHeader()}
       <button id="rename-category-btn" class="icon-btn" aria-label="Renommer la catégorie">✎</button>
       <button id="delete-category-detail-btn" class="icon-btn" aria-label="Supprimer la catégorie">🗑️</button>
     </div>
   `;
   document.getElementById("rename-category-btn").addEventListener("click", () => startRenameCategoryInDetail(category));
   document.getElementById("delete-category-detail-btn").addEventListener("click", () => handleDeleteCategoryFromDetail(category));
+  wireColorPickerHeader(row.querySelector(".detail-title-actions"), (color) => handleChangeCategoryColor(category, color));
 }
 
 function startRenameCategoryInDetail(category) {
@@ -261,8 +262,6 @@ function renderRecipes() {
     emptyMessage: "Aucune recette dans cette catégorie.",
     isNew: (recipe) => recipe.created_by !== currentUserId && shouldShowBadge(recipe.created_at, recipesLastSeenAt),
     onOpen: (recipe) => openRecipeDetail(recipe),
-    onDelete: (recipe) => handleDeleteRecipe(recipe.id),
-    onColorChange: handleChangeRecipeColor,
     onReorder: handleReorderRecipes,
   });
 }
@@ -285,22 +284,19 @@ async function handleReorderRecipes(orderedIds) {
   await Promise.all(recipes.map((r) => updateRecipePosition(r.id, r.position)));
 }
 
-function handleDeleteRecipe(id) {
-  const recipe = recipes.find((r) => r.id === id);
-  if (!recipe) return;
-
-  pendingDeleteRecipeIds.add(id);
-  renderRecipes();
+function handleDeleteRecipeFromDetail(recipe) {
+  pendingDeleteRecipeIds.add(recipe.id);
+  goBack();
 
   showUndoToast({
     message: `Recette « ${recipe.title} » supprimée`,
     onUndo: () => {
-      pendingDeleteRecipeIds.delete(id);
+      pendingDeleteRecipeIds.delete(recipe.id);
       renderRecipes();
     },
     onConfirm: async () => {
-      pendingDeleteRecipeIds.delete(id);
-      await deleteRecipe(id);
+      pendingDeleteRecipeIds.delete(recipe.id);
+      await deleteRecipe(recipe.id);
       await loadRecipes();
     },
   });
@@ -323,7 +319,17 @@ function openRecipeDetail(recipe) {
       ${draft ? `<p class="prefs-hint">📝 Brouillon restauré. <button type="button" id="discard-draft-btn" class="link-btn">Effacer le brouillon</button></p>` : ""}
       <form id="recipe-form" class="recipe-form">
         <label class="field-label" for="r-title">Titre</label>
-        <input id="r-title" placeholder="Titre" value="${recipe?.title ?? draft?.title ?? ""}" required />
+        <div class="detail-title-row">
+          <input id="r-title" class="list-detail-title-input" placeholder="Titre" value="${recipe?.title ?? draft?.title ?? ""}" required />
+          ${
+            recipe
+              ? `<div class="detail-title-actions">
+                  ${renderColorPickerHeader()}
+                  <button type="button" id="delete-recipe-detail-btn" class="icon-btn" aria-label="Supprimer la recette">🗑️</button>
+                </div>`
+              : ""
+          }
+        </div>
 
         <label class="field-label" for="r-ingredients">🥕 Ingrédients</label>
         <textarea id="r-ingredients" class="recipe-textarea-lg" placeholder="Un ingrédient par ligne…">${recipe?.ingredients ?? draft?.ingredients ?? ""}</textarea>
@@ -345,6 +351,11 @@ function openRecipeDetail(recipe) {
     clearDraft(currentCategory.id);
     openRecipeDetail(null);
   });
+
+  if (recipe) {
+    wireColorPickerHeader(document.querySelector(".detail-title-actions"), (color) => handleChangeRecipeColor(recipe, color));
+    document.getElementById("delete-recipe-detail-btn").addEventListener("click", () => handleDeleteRecipeFromDetail(recipe));
+  }
 
   // Sauvegarde continue du brouillon pendant la saisie (uniquement en création,
   // pas en édition d'une recette existante) : si l'appli est rechargée de force
