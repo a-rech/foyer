@@ -4,7 +4,6 @@ import { markTabSeen, getLastSeenMap, shouldShowBadge } from "../badges.js";
 import { goHome, pushView, goBack } from "../router.js";
 import { showUndoToast } from "../utils/toast.js";
 import { escapeHtml } from "../utils/format.js";
-import { COLOR_CYCLE, randomTileColor, renderColorPickerHeader, wireColorPickerHeader } from "../utils/tileBoard.js";
 
 let unsubscribe = null;
 let notes = [];
@@ -15,7 +14,6 @@ let currentUserId = null;
 let containerRef = null;
 let pendingDeleteIds = new Set();
 let notesLastSeenAt = null; // capturé avant markTabSeen, pour les badges "nouveau" par tuile
-let pendingColorOverrides = new Map(); // id -> couleur pas encore confirmée par le serveur
 
 // Drag & drop (pointer events, compatible souris + tactile)
 let draggedEl = null;
@@ -73,7 +71,7 @@ async function loadNotes() {
     .eq("archived", false)
     .order("position", { ascending: true });
   if (error) return console.error(error);
-  notes = data.map((n) => (pendingColorOverrides.has(n.id) ? { ...n, color: pendingColorOverrides.get(n.id) } : n));
+  notes = data;
   renderBoard();
 }
 
@@ -90,7 +88,6 @@ async function handleAdd(e) {
     created_by: currentUserId,
     position: notes.length,
     favorite: false,
-    color: randomTileColor(),
   };
 
   // Affichage optimiste immédiat (corrige l'absence d'affichage à la création)
@@ -113,7 +110,10 @@ function renderBoard() {
   const board = document.getElementById("note-board");
   if (!board) return;
 
-  const visible = notes.filter((n) => !pendingDeleteIds.has(n.id));
+  const visible = notes
+    .filter((n) => !pendingDeleteIds.has(n.id))
+    .slice()
+    .sort((a, b) => (a.favorite === b.favorite ? a.position - b.position : b.favorite - a.favorite));
 
   if (visible.length === 0) {
     board.innerHTML = `<p class="empty-state">Aucune note pour l'instant.</p>`;
@@ -123,7 +123,7 @@ function renderBoard() {
   board.innerHTML = visible
     .map(
       (n) => `
-    <div class="note-card ${n.color || "card-yellow"}" data-id="${n.id}">
+    <div class="note-card card-yellow" data-id="${n.id}">
       <div class="tile-toprow">
         <span class="tile-toprow-left">${isNoteNew(n) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}</span>
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
@@ -154,20 +154,6 @@ function renderBoard() {
   board.querySelectorAll(".drag-handle").forEach((el) => {
     el.addEventListener("pointerdown", onDragHandlePointerDown);
   });
-}
-
-async function handleChangeNoteColor(id, color) {
-  const note = notes.find((n) => n.id === id);
-  if (!note) return;
-  note.color = color;
-  pendingColorOverrides.set(id, color);
-  renderBoard();
-  const { error } = await supabase.from("notes").update({ color }).eq("id", id);
-  pendingColorOverrides.delete(id);
-  if (error) {
-    console.error(error);
-    await loadNotes(); // resynchronise si l'update a échoué côté serveur
-  }
 }
 
 // Une note est "nouvelle" si un AUTRE membre du foyer l'a ajoutée après notre dernière visite
@@ -251,18 +237,15 @@ function openNote(note) {
   containerRef.innerHTML = `
     <div class="list-detail">
       <button id="back-to-board" class="back-btn">‹ Notes</button>
-      <div class="note-detail-card ${note.color || "card-yellow"}" id="note-detail-card">
-        <form id="note-detail-form" class="recipe-form">
-          <textarea id="note-detail-content" placeholder="Contenu de la note" required>${escapeHtml(note.content)}</textarea>
-          <button type="submit">Enregistrer</button>
-        </form>
-        <div class="note-detail-actions">
-          <button type="button" id="note-detail-delete" class="danger-btn">Supprimer</button>
-          ${renderColorPickerHeader()}
-          <button type="button" id="note-detail-favorite" class="secondary">
-            ${note.favorite ? "⭐ Retirer des favoris" : "☆ Mettre en favori"}
-          </button>
-        </div>
+      <form id="note-detail-form" class="recipe-form">
+        <textarea id="note-detail-content" placeholder="Contenu de la note" required>${escapeHtml(note.content)}</textarea>
+        <button type="submit">Enregistrer</button>
+      </form>
+      <div class="note-detail-actions">
+        <button type="button" id="note-detail-delete" class="danger-btn">Supprimer</button>
+        <button type="button" id="note-detail-favorite" class="secondary">
+          ${note.favorite ? "⭐ Retirer des favoris" : "☆ Mettre en favori"}
+        </button>
       </div>
     </div>
   `;
@@ -275,12 +258,6 @@ function openNote(note) {
     openNote(currentNote);
   });
   document.getElementById("note-detail-delete").addEventListener("click", () => handleDeleteNote(currentNote));
-  wireColorPickerHeader(document.querySelector(".note-detail-actions"), (color) => {
-    handleChangeNoteColor(note.id, color);
-    // Retour visuel immédiat, sans attendre de revenir au mur de notes
-    const card = document.getElementById("note-detail-card");
-    if (card) card.className = `note-detail-card ${color}`;
-  });
 }
 
 async function handleSaveNote(e) {
