@@ -42,11 +42,12 @@ export function renderTileBoard(boardEl, items, options) {
       const color = (getColor && getColor(item)) || COLOR_CYCLE[0];
       return `
     <div class="tile-card ${color}" data-id="${getId(item)}">
-      ${isNew && isNew(item) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}
-      <div class="tile-card-row">
+      <div class="tile-toprow">
+        <span class="tile-toprow-left">${isNew && isNew(item) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}</span>
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
-        <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
+        <span class="tile-toprow-right"></span>
       </div>
+      <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
     </div>
   `;
     })
