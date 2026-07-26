@@ -380,8 +380,8 @@ button.secondary {
   line-height: 1; box-shadow: var(--shadow); z-index: 2;
 }
 
-.note-detail-actions { display: flex; gap: 10px; margin-top: 10px; }
-.note-detail-actions button { width: auto; flex: 1; }
+.note-detail-actions { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+.note-detail-actions > button, .note-detail-actions > .detail-color-picker-wrap > button { width: auto; flex: 1; }
 .danger-btn { background: var(--danger-bg); color: var(--danger); border: none; }
 .danger-btn:hover { filter: brightness(0.96); }
 #delete-event-btn { display: table; margin: 28px auto 0; padding: 12px 28px; }
@@ -455,6 +455,8 @@ button.secondary {
   background: var(--surface); border-radius: 16px; box-shadow: var(--shadow);
   padding: 8px; display: flex; flex-wrap: wrap; gap: 7px; width: 112px;
 }
+.detail-color-picker-wrap { position: relative; display: inline-flex; }
+.detail-color-picker-wrap .tile-color-picker { top: 34px; right: 0; }
 .tile-color-picker[hidden] { display: none; }
 .tile-color-swatch {
   width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
@@ -482,6 +484,12 @@ button.secondary {
 .list-detail-title { margin: 4px 0 16px; }
 .detail-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
 .detail-title-row .list-detail-title { margin: 0; flex: 1; }
+.list-detail-title-input {
+  flex: 1; min-width: 0; font-size: 1.3rem; font-weight: 700; font-family: inherit;
+  border: none; border-bottom: 2px solid transparent; background: transparent;
+  padding: 4px 0; margin: 0; color: var(--text); width: auto;
+}
+.list-detail-title-input:focus { outline: none; border-bottom-color: var(--primary); }
 .detail-title-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .icon-btn {
   width: auto; background: none; border: none; font-size: 1.1rem;
