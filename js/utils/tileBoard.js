@@ -21,6 +21,8 @@ let draggedEl = null;
 //                          la première couleur de la palette si absente
 //   emptyMessage       -> texte si la liste est vide
 //   isNew(item)         -> true pour afficher le badge vert "N" en haut à gauche
+//   topRightHtml(item)  -> HTML optionnel affiché en haut à droite de la tuile
+//                          (ex : icône de lien externe, cf. recipes.js)
 //   onOpen(item)        -> tap sur le contenu de la tuile
 //   onReorder(orderedIds) -> appelé après un glisser-déposer avec la nouvelle liste d'ids
 //
@@ -28,7 +30,7 @@ let draggedEl = null;
 // la page vers laquelle elle mène (voir renderColorPickerHeader/wireColorPickerHeader
 // ci-dessous, utilisés dans les en-têtes de détail de recipes.js/shopping.js/notes.js).
 export function renderTileBoard(boardEl, items, options) {
-  const { getId, getLabel, getColor, emptyMessage = "Rien pour l'instant.", isNew, onOpen, onReorder } = options;
+  const { getId, getLabel, getColor, emptyMessage = "Rien pour l'instant.", isNew, topRightHtml, onOpen, onReorder } = options;
 
   if (!boardEl) return;
 
@@ -45,7 +47,7 @@ export function renderTileBoard(boardEl, items, options) {
       <div class="tile-toprow">
         <span class="tile-toprow-left">${isNew && isNew(item) ? `<span class="tile-badge-new" aria-label="Nouveau">N</span>` : ""}</span>
         <span class="drag-handle" aria-label="Déplacer">⠿</span>
-        <span class="tile-toprow-right"></span>
+        <span class="tile-toprow-right">${topRightHtml ? topRightHtml(item) : ""}</span>
       </div>
       <span class="tile-card-content" data-action="open">${escapeHtml(getLabel(item))}</span>
     </div>
