@@ -357,10 +357,10 @@ button.secondary {
   background: var(--card-yellow); color: var(--card-yellow-text);
   border-radius: var(--radius-sm); box-shadow: var(--shadow);
   padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
-  min-height: 48px; transition: opacity 0.15s; position: relative;
+  min-height: 64px; transition: opacity 0.15s; position: relative;
 }
 .note-card.dragging { opacity: 0.5; }
-.note-card-row { display: flex; align-items: center; gap: 6px; }
+.note-card-row { display: flex; align-items: flex-start; gap: 6px; }
 .drag-handle {
   cursor: grab; touch-action: none; font-size: 1.1rem; opacity: 0.6;
   padding: 4px 6px; user-select: none; flex-shrink: 0;
@@ -369,7 +369,7 @@ button.secondary {
 .note-card-actions .tile-icon-btn.is-favorite { opacity: 1; }
 .note-card-content {
   margin: 0; flex: 1; min-width: 0; font-weight: 500; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow-wrap: break-word; word-break: break-word; hyphens: auto;
 }
 
 /* Badge vert "nouveau" réutilisé sur toutes les tuiles (notes, listes, catégories, recettes) */
@@ -430,10 +430,10 @@ button.secondary {
 .tile-card {
   border-radius: var(--radius-sm); box-shadow: var(--shadow);
   padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
-  min-height: 48px; transition: opacity 0.15s; position: relative;
+  min-height: 64px; transition: opacity 0.15s; position: relative;
 }
 .tile-card.dragging { opacity: 0.5; }
-.tile-card-row { display: flex; align-items: center; gap: 6px; }
+.tile-card-row { display: flex; align-items: flex-start; gap: 6px; }
 .tile-card-actions { display: flex; align-items: center; flex-shrink: 0; }
 .tile-icon-btn {
   width: auto; background: none; border: none; font-size: 1rem;
@@ -441,7 +441,7 @@ button.secondary {
 }
 .tile-card-content {
   margin: 0; flex: 1; min-width: 0; font-weight: 700; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow-wrap: break-word; word-break: break-word; hyphens: auto;
 }
 .tile-inline-rename { display: flex; gap: 6px; }
 .tile-inline-rename input {
