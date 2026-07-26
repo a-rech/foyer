@@ -41,7 +41,7 @@ export async function clearMealEntry(id) {
 export async function getAllRecipesFlat(householdId) {
   const { data, error } = await supabase
     .from("recipes")
-    .select("id, title, ingredients")
+    .select("id, title, ingredients, link")
     .eq("household_id", householdId)
     .order("title", { ascending: true });
   if (error) throw error;
