@@ -447,33 +447,94 @@ function clearDraft(categoryId) {
 
 async function handleSaveRecipe(e) {
   e.preventDefault();
+  
+  const btn = e.target.querySelector('button[type="submit"]');
+  const originalText = btn.textContent;
 
-  const rawLink = document.getElementById("r-link").value;
-  const link = normalizeUrl(rawLink);
-  if (link === null) {
-    alert("Le lien saisi n'est pas valide.");
-    return;
-  }
+  try {
+    // === ÉTAPE 1 : VALIDATION ===
+    const title = document.getElementById("r-title").value.trim();
+    if (!title) {
+      showUndoToast({
+        message: "❌ Le titre de la recette est obligatoire",
+        duration: 3000
+      });
+      return;
+    }
 
-  const values = {
-    title: document.getElementById("r-title").value.trim(),
-    ingredients: document.getElementById("r-ingredients").value.trim(),
-    instructions: document.getElementById("r-instructions").value.trim(),
-    notes: document.getElementById("r-notes").value.trim(),
-    link,
-  };
+    const rawLink = document.getElementById("r-link").value;
+    const link = normalizeUrl(rawLink);
+    if (link === null) {
+      showUndoToast({
+        message: "❌ Le lien saisi n'est pas valide (vérifiez l'URL)",
+        duration: 3000
+      });
+      return;
+    }
 
-  if (currentRecipe) {
-    await updateRecipe(currentRecipe.id, values);
-  } else {
-    await createRecipe({
-      household_id: currentHouseholdId,
-      category_id: currentCategory.id,
-      created_by: currentUserId,
-      ...values,
+    const values = {
+      title,
+      ingredients: document.getElementById("r-ingredients").value.trim(),
+      instructions: document.getElementById("r-instructions").value.trim(),
+      notes: document.getElementById("r-notes").value.trim(),
+      link,
+    };
+
+    // === ÉTAPE 2 : FEEDBACK UTILISATEUR ===
+    btn.disabled = true;
+    btn.textContent = "⏳ Enregistrement…";
+    console.log(`[Recipes] Sauvegarde de recette: ${title}`);
+
+    // === ÉTAPE 3 : SAUVEGARDE EN BASE ===
+    if (currentRecipe) {
+      console.log(`[Recipes] Mise à jour recette ID: ${currentRecipe.id}`);
+      await updateRecipe(currentRecipe.id, values);
+      showUndoToast({
+        message: `✅ Recette « ${title} » modifiée avec succès`,
+        duration: 2500
+      });
+    } else {
+      console.log(`[Recipes] Création nouvelle recette dans catégorie ID: ${currentCategory.id}`);
+      await createRecipe({
+        household_id: currentHouseholdId,
+        category_id: currentCategory.id,
+        created_by: currentUserId,
+        ...values,
+      });
+      showUndoToast({
+        message: `✅ Recette « ${title} » créée avec succès`,
+        duration: 2500
+      });
+      clearDraft(currentCategory.id);
+    }
+
+    console.log(`[Recipes] Sauvegarde réussie, retour à la liste`);
+    goBack();
+
+  } catch (error) {
+    // === ÉTAPE 4 : GESTION D'ERREUR ===
+    console.error("[Recipes] ERREUR lors de la sauvegarde:", error);
+    
+    let errorMessage = "❌ Erreur lors de l'enregistrement de la recette";
+    
+    if (error.message) {
+      if (error.message.includes("not authenticated")) {
+        errorMessage = "❌ Vous n'êtes pas connecté. Veuillez vous reconnecter.";
+      } else if (error.message.includes("permission denied")) {
+        errorMessage = "❌ Vous n'avez pas la permission d'effectuer cette action.";
+      } else {
+        errorMessage = `❌ Erreur: ${error.message}`;
+      }
+    }
+
+    showUndoToast({
+      message: errorMessage,
+      duration: 4000
     });
-    clearDraft(currentCategory.id);
-  }
 
-  goBack();
+  } finally {
+    // === ÉTAPE 5 : RESTAURATION INTERFACE ===
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
