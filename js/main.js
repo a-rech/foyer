@@ -5,6 +5,7 @@ import { registerTab, initRouter, forceNextTab } from "./router.js";
 import { initBadges } from "./badges.js";
 import { ensureProfile } from "./profiles.js";
 import { initTheme } from "./theme.js";
+import { captureIncomingImport, processPendingImport } from "./marecette.js";
 
 import * as homeTab from "./tabs/home.js";
 import * as shoppingTab from "./tabs/shopping.js";
@@ -16,6 +17,9 @@ import * as mealsTab from "./tabs/meals.js";
 import * as preferencesTab from "./tabs/preferences.js";
 
 initTheme();
+// Recette envoyée depuis MaRecette (lien Foyer avec « #mr=… ») : mise de côté
+// tout de suite, l'import se fait une fois connecté (voir renderAppShell).
+captureIncomingImport();
 
 const appEl = document.getElementById("app");
 
@@ -137,6 +141,7 @@ function renderAppShell(user, household) {
 
   initRouter("home");
   initBadges(ctx.householdId, ctx.userId);
+  processPendingImport(ctx);
 }
 
 // onAuthChange() déclenche déjà son callback immédiatement avec la session en

@@ -10,6 +10,8 @@ import {
   getAllRecipesFlat,
   generateShoppingListFromWeek,
 } from "../meals.js";
+import { loadCatalogue, importRecipeToFoyer } from "../marecette.js";
+import { showInfoToast } from "../utils/toast.js";
 
 const WEEKDAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
@@ -19,6 +21,10 @@ let recipesFlat = [];
 let currentWeekStart = null;
 let view = "week"; // "week" | "picker"
 let pickerContext = null; // { date, slot }
+let pickerSource = "foyer"; // "foyer" (recettes du foyer) | "catalogue" (catalogue MaRecette)
+let catalogue = null; // null = pas encore chargé ; [] / liste une fois chargé
+let catalogueError = null;
+let pickerBusy = false; // évite un double clic pendant la copie d'une recette du catalogue
 let containerRef = null;
 let currentHouseholdId = null;
 let currentUserId = null;
@@ -169,6 +175,8 @@ async function handleGenerateList() {
 async function openPicker(dateStr, slotKey) {
   view = "picker";
   pickerContext = { dateStr, slotKey };
+  pickerSource = "foyer";
+  pickerBusy = false;
 
   pushView(() => {
     view = "week";
@@ -195,6 +203,10 @@ async function openPicker(dateStr, slotKey) {
       </form>
 
       <p class="field-hint">Ou choisissez une recette :</p>
+      <div class="prefs-theme-toggle" id="picker-source-toggle">
+        <button type="button" data-source="foyer" class="is-active">Mes recettes</button>
+        <button type="button" data-source="catalogue">📖 Catalogue MaRecette</button>
+      </div>
       <input id="recipe-search" placeholder="Rechercher une recette…" />
       <div id="recipe-picker-list" class="lists-overview"></div>
 
@@ -205,16 +217,57 @@ async function openPicker(dateStr, slotKey) {
   document.getElementById("back-to-week").addEventListener("click", () => goBack());
   document.getElementById("custom-meal-form").addEventListener("submit", handleSetCustom);
   document.getElementById("recipe-search").addEventListener("input", (e) => renderRecipePicker(e.target.value));
+  document.querySelectorAll("#picker-source-toggle [data-source]").forEach((btn) => {
+    btn.addEventListener("click", () => switchPickerSource(btn.dataset.source));
+  });
   document.getElementById("clear-slot-btn")?.addEventListener("click", () => handleClearSlot(existing));
 
   renderRecipePicker("");
 }
 
+// Minuscules + sans accents, pour que « ecrevisse » trouve « Écrevisse »
+function normalizeText(str) {
+  return (str ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+async function switchPickerSource(source) {
+  if (source === pickerSource) return;
+  pickerSource = source;
+  document.querySelectorAll("#picker-source-toggle [data-source]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.source === source);
+  });
+  const search = document.getElementById("recipe-search");
+  if (source === "catalogue" && catalogue === null) {
+    await ensureCatalogueLoaded();
+  } else {
+    renderRecipePicker(search ? search.value : "");
+  }
+}
+
+// Charge le catalogue MaRecette (une seule fois par session) puis réaffiche la liste
+async function ensureCatalogueLoaded() {
+  const el = document.getElementById("recipe-picker-list");
+  if (el) el.innerHTML = `<p class="empty-state">Chargement du catalogue MaRecette…</p>`;
+  catalogueError = null;
+  try {
+    catalogue = await loadCatalogue();
+  } catch (err) {
+    console.error("[Repas] Catalogue MaRecette indisponible:", err);
+    catalogue = null;
+    catalogueError = err.message || "erreur inconnue";
+  }
+  if (view !== "picker" || pickerSource !== "catalogue") return;
+  const search = document.getElementById("recipe-search");
+  renderRecipePicker(search ? search.value : "");
+}
+
 function renderRecipePicker(filter) {
+  if (pickerSource === "catalogue") return renderCataloguePicker(filter);
+
   const el = document.getElementById("recipe-picker-list");
   if (!el) return;
-  const q = filter.trim().toLowerCase();
-  const filtered = q ? recipesFlat.filter((r) => r.title.toLowerCase().includes(q)) : recipesFlat;
+  const q = normalizeText(filter.trim());
+  const filtered = q ? recipesFlat.filter((r) => normalizeText(r.title).includes(q)) : recipesFlat;
 
   if (filtered.length === 0) {
     el.innerHTML = `<p class="empty-state">${recipesFlat.length === 0 ? "Aucune recette enregistrée pour l'instant." : "Aucun résultat."}</p>`;
@@ -236,6 +289,66 @@ function renderRecipePicker(filter) {
       handleSetRecipe(recipeId);
     });
   });
+}
+
+function renderCataloguePicker(filter) {
+  const el = document.getElementById("recipe-picker-list");
+  if (!el) return;
+
+  if (catalogueError) {
+    el.innerHTML = `
+      <p class="empty-state">Catalogue MaRecette indisponible (${escapeHtml(catalogueError)}).<br />Vérifiez votre connexion.</p>
+      <button type="button" id="retry-catalogue-btn" class="secondary">Réessayer</button>`;
+    document.getElementById("retry-catalogue-btn").addEventListener("click", ensureCatalogueLoaded);
+    return;
+  }
+  if (catalogue === null) {
+    el.innerHTML = `<p class="empty-state">Chargement du catalogue MaRecette…</p>`;
+    return;
+  }
+
+  const q = normalizeText(filter.trim());
+  const filtered = q
+    ? catalogue.filter((r) => normalizeText(r.title).includes(q) || normalizeText(r.cat).includes(q))
+    : catalogue;
+
+  if (filtered.length === 0) {
+    el.innerHTML = `<p class="empty-state">Aucun résultat dans le catalogue.</p>`;
+    return;
+  }
+
+  el.innerHTML = filtered
+    .map(
+      (r) => `<div class="list-row" data-cid="${escapeHtml(String(r.id))}">
+        <span class="list-row-name" data-action="pick-catalogue">${escapeHtml(`${r.emoji ?? ""} ${r.title}`.trim())}</span>
+        <span class="field-hint" style="margin:0">${escapeHtml(r.cat ?? "")}</span>
+      </div>`
+    )
+    .join("");
+
+  el.querySelectorAll('[data-action="pick-catalogue"]').forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const cid = e.target.closest(".list-row").dataset.cid;
+      handleSetCatalogueRecipe(catalogue.find((r) => String(r.id) === cid));
+    });
+  });
+}
+
+// Copie la recette du catalogue dans les recettes du foyer (sans doublon),
+// puis l'assigne au créneau choisi
+async function handleSetCatalogueRecipe(recipe) {
+  if (!recipe || pickerBusy) return;
+  pickerBusy = true;
+  try {
+    showInfoToast("⏳ Ajout de la recette…", 1500);
+    const { recipeId } = await importRecipeToFoyer({ householdId: currentHouseholdId, userId: currentUserId }, recipe);
+    await handleSetRecipe(recipeId);
+  } catch (err) {
+    console.error("[Repas] Erreur lors de l'ajout depuis le catalogue:", err);
+    showInfoToast(`❌ Impossible d'ajouter la recette : ${escapeHtml(err.message || "erreur inconnue")}`, 4000);
+  } finally {
+    pickerBusy = false;
+  }
 }
 
 async function handleSetCustom(e) {
